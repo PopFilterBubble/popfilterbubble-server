@@ -1,0 +1,15 @@
+version: 0.0
+os: linux
+files:
+  - source: /
+    destination: /home/app
+permissions:
+  - object: /home/app
+    pattern: "**"
+    owner: root
+    mode: 777
+hooks:
+  ApplicationStart:
+    - location: deploy.sh
+      timeout: 300
+      runas: root
