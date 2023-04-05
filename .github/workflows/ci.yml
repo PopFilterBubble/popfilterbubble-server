@@ -61,7 +61,7 @@ jobs:
           aws deploy create-deployment --application-name popfilterbubble --deployment-group-name popfilterbubble-group --file-exists-behavior OVERWRITE --s3-location bucket=popfilterbubble-s3,bundleType=zip,key=popfilterbubble.zip --region ap-northeast-2
 
       - name: Slack Notification
-      - uses: 8398a7/action-slack@v3
+        uses: 8398a7/action-slack@v3
         with:
           status: custom
           fields: workflow,job,commit,repo,ref,author,took
