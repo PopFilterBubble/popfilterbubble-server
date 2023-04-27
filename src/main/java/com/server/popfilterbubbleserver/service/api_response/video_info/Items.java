@@ -1,4 +1,4 @@
-package com.server.popfilterbubbleserver.service.api_response.vidoe_info;
+package com.server.popfilterbubbleserver.service.api_response.video_info;
 
 
 import lombok.Getter;
