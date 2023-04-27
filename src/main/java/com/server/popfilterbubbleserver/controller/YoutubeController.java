@@ -3,6 +3,7 @@ package com.server.popfilterbubbleserver.controller;
 import com.server.popfilterbubbleserver.service.YoutubeService;
 import com.server.popfilterbubbleserver.service.api_response.channel.ChannelApiResult;
 import com.server.popfilterbubbleserver.service.api_response.video.VideoApiResult;
+import com.server.popfilterbubbleserver.service.api_response.vidoe_info.VideoInfoApiResult;
 import com.server.popfilterbubbleserver.util.ErrorMessages;
 import java.io.IOException;
 import java.net.URISyntaxException;
@@ -26,6 +27,11 @@ public class YoutubeController {
     @GetMapping("/videoInfo")
     public VideoApiResult videoInfo(@RequestParam String channelId) {
         return youtubeService.getVideoInfoByChannelId(channelId).getBody();
+    }
+
+    @GetMapping("/videoInfoByVideoId")
+    public VideoInfoApiResult videoInfoByVideoId(@RequestParam String videoId) {
+        return youtubeService.getVideoDetailInfoByVideoId(videoId).getBody();
     }
 
     @GetMapping("/customId/{customId}")

@@ -2,6 +2,7 @@ package com.server.popfilterbubbleserver.service;
 
 import com.server.popfilterbubbleserver.service.api_response.channel.ChannelApiResult;
 import com.server.popfilterbubbleserver.service.api_response.video.VideoApiResult;
+import com.server.popfilterbubbleserver.service.api_response.vidoe_info.VideoInfoApiResult;
 import com.server.popfilterbubbleserver.util.ErrorMessages;
 import lombok.extern.slf4j.Slf4j;
 import org.jsoup.Jsoup;
@@ -68,6 +69,15 @@ public class YoutubeService {
         url += "&key=" + youtube_api_key;
 
         return (ResponseEntity<VideoApiResult>) getResponse(url, new VideoApiResult());
+    }
+
+    public ResponseEntity<VideoInfoApiResult> getVideoDetailInfoByVideoId(String videoId){
+        String url = "https://youtube.googleapis.com/youtube/v3/videos";
+        url += "?part=snippet,statistics,topicDetails";
+        url += "&id=" + videoId;
+        url += "&key=" + youtube_api_key;
+
+        return (ResponseEntity<VideoInfoApiResult>) getResponse(url, new VideoInfoApiResult());
     }
 
     public String convertCustomIdToChannelId(String customId) throws IOException {
