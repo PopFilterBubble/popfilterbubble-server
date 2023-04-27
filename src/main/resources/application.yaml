@@ -21,6 +21,7 @@ spring:
   config:
     activate:
       on-profile: local-db
+    import: secret.yaml
   datasource:
     username: root
     url: jdbc:mysql://localhost:3306/test
@@ -49,6 +50,6 @@ spring:
       ddl-auto: update
     defer-datasource-initialization: true
     show-sql: true
-
+youtube_api_key: ${youtube_api_key}
 server:
   port: '80'

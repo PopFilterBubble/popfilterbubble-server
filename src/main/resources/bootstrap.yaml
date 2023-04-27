@@ -35,5 +35,5 @@ spring:
       on-profile: prod-db
 aws:
   secretsmanager:
-    name: prod/db
+    name: prod/pop-filter-bubble
     enabled: true
