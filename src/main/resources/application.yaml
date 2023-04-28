@@ -43,7 +43,7 @@ spring:
       on-profile: prod-db
   datasource:
     username: root
-    url: jdbc:mysql://${mysql_url}:3306/pop-filter-bubble
+    url: jdbc:mysql://${mysql_url}:3306/popfilterbubble
     password: ${mysql_password}
   jpa:
     hibernate:
