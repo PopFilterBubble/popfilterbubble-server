@@ -50,6 +50,8 @@ spring:
       ddl-auto: update
     defer-datasource-initialization: true
     show-sql: true
+    database: mysql
+    database-platform: org.hibernate.dialect.MySQL5InnoDBDialect
 youtube_api_key: ${youtube_api_key}
 server:
   port: '80'
