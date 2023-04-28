@@ -1,4 +1,55 @@
 spring:
+  config:
+    activate:
+      on-profile: common
+  datasource:
+    driver-class-name: com.mysql.cj.jdbc.Driver
+
   mvc:
     path match:
       matching-strategy: ant_path_matcher
+
+  sql:
+    init:
+      encoding: UTF-8
+      continue-on-error: true
+      mode: always
+
+---
+
+spring:
+  config:
+    activate:
+      on-profile: local-db
+    import: secret.yaml
+  datasource:
+    username: root
+    url: jdbc:mysql://localhost:3306/test
+    password: 1234
+  jpa:
+    hibernate:
+      ddl-auto: update
+    defer-datasource-initialization: true
+    show-sql: true
+
+server:
+  port: '8080'
+
+---
+
+spring:
+  config:
+    activate:
+      on-profile: prod-db
+  datasource:
+    username: root
+    url: jdbc:mysql://${mysql_url}:3306/popfilterbubble
+    password: ${mysql_password}
+  jpa:
+    hibernate:
+      ddl-auto: update
+    defer-datasource-initialization: true
+    show-sql: true
+youtube_api_key: ${youtube_api_key}
+server:
+  port: '80'

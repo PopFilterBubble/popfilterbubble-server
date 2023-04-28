@@ -1,0 +1,39 @@
+spring:
+  profiles:
+    group:
+      local: "local-db,common"
+      prod: "prod-db,common"
+    active: local
+
+---
+
+spring:
+  config:
+    activate:
+      on-profile: common
+cloud:
+  aws:
+    region:
+      static: ap-northeast-2
+      auto: false
+
+---
+
+spring:
+  config:
+    activate:
+      on-profile: local-db
+aws:
+  secretsmanager:
+    enabled: false
+
+---
+
+spring:
+  config:
+    activate:
+      on-profile: prod-db
+aws:
+  secretsmanager:
+    name: prod/pop-filter-bubble
+    enabled: true
