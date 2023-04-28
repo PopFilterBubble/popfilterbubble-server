@@ -42,7 +42,7 @@ spring:
     activate:
       on-profile: prod-db
   datasource:
-    username: root
+    username: admin
     url: jdbc:mysql://${mysql_url}:3306/popfilterbubble
     password: ${mysql_password}
   jpa:
