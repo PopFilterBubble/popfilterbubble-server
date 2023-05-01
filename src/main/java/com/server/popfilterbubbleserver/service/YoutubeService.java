@@ -1,14 +1,22 @@
 package com.server.popfilterbubbleserver.service;
 
 import com.server.popfilterbubbleserver.service.api_response.channel.ChannelApiResult;
+import com.server.popfilterbubbleserver.service.api_response.channel.Items;
+import com.server.popfilterbubbleserver.service.api_response.channel.Snippet;
+import com.server.popfilterbubbleserver.service.api_response.channel.Statistics;
+import com.server.popfilterbubbleserver.service.api_response.channel.TopicDetails;
 import com.server.popfilterbubbleserver.service.api_response.video.VideoApiResult;
 import com.server.popfilterbubbleserver.service.api_response.video_comment.VideoCommentApiResult;
 import com.server.popfilterbubbleserver.service.api_response.video_info.VideoInfoApiResult;
+import com.server.popfilterbubbleserver.module.YoutubeChannelEntity;
+import com.server.popfilterbubbleserver.repository.YoutubeRepository;
 import com.server.popfilterbubbleserver.util.ErrorMessages;
+import java.io.IOException;
 import lombok.extern.slf4j.Slf4j;
 import org.jsoup.Jsoup;
 import org.jsoup.nodes.Document;
 import org.jsoup.nodes.Element;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpHeaders;
@@ -17,25 +25,33 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestTemplate;
 
-import java.io.IOException;
-
 @Service
 @Slf4j
 public class YoutubeService {
 
+    private final int CONSERVATIVE = 0;
+    private final int PROGRESSIVE = 1;
+    private final int UNCLASSIFIED = 2;
+    private final int ETC = 3;
+
+
+    @Autowired
+    private YoutubeRepository youtubeRepository;
+
     @Value("${youtube_api_key}")
     private String youtube_api_key;
 
-    public HttpEntity<String> setHeaders(){
+    public HttpEntity<String> setHeaders() {
         HttpHeaders headers = new HttpHeaders();
         headers.set("Accept", "application/json");
         return new HttpEntity<>(headers);
     }
-    public ResponseEntity<?> getResponse(String url, Object classType){
+
+    public ResponseEntity<?> getResponse(String url, Object classType) {
         RestTemplate restTemplate = new RestTemplate();
         ResponseEntity<?> response = null;
 
-        for(int i = 0; i < 10; i++) {
+        for (int i = 0; i < 10; i++) {
             try {
                 response = restTemplate.exchange(url, HttpMethod.GET, setHeaders(), classType.getClass());
                 log.info("response : " + response.getBody());
@@ -61,7 +77,7 @@ public class YoutubeService {
         return (ResponseEntity<ChannelApiResult>) getResponse(url, new ChannelApiResult());
     }
 
-    public ResponseEntity<VideoApiResult> getVideoInfoByChannelId(String channelID){
+    public ResponseEntity<VideoApiResult> getVideoInfoByChannelId(String channelID) {
         String url = "https://youtube.googleapis.com/youtube/v3/search";
         url += "?part=snippet";
         url += "&channelId=" + channelID;
@@ -72,7 +88,7 @@ public class YoutubeService {
         return (ResponseEntity<VideoApiResult>) getResponse(url, new VideoApiResult());
     }
 
-    public ResponseEntity<VideoInfoApiResult> getVideoDetailInfoByVideoId(String videoId){
+    public ResponseEntity<VideoInfoApiResult> getVideoDetailInfoByVideoId(String videoId) {
         String url = "https://youtube.googleapis.com/youtube/v3/videos";
         url += "?part=snippet,statistics,topicDetails";
         url += "&id=" + videoId;
@@ -81,7 +97,7 @@ public class YoutubeService {
         return (ResponseEntity<VideoInfoApiResult>) getResponse(url, new VideoInfoApiResult());
     }
 
-    public ResponseEntity<VideoCommentApiResult> getCommentInfoByVideoId(String videoId){
+    public ResponseEntity<VideoCommentApiResult> getCommentInfoByVideoId(String videoId) {
         String url = "https://youtube.googleapis.com/youtube/v3/commentThreads";
         url += "?part=snippet";
         url += "&videoId=" + videoId;
@@ -105,5 +121,51 @@ public class YoutubeService {
         } else {
             throw new IOException(ErrorMessages.CHANNEL_ID_NOT_FOUND);
         }
+    }
+
+    public void saveYoutubeChannelInfo(String channelId, ChannelApiResult channelApiResult) {
+        if (channelApiResult != null && channelApiResult.getItems() != null) {
+            for (Items item : channelApiResult.getItems()) {
+                Snippet snippet = item.getSnippet();
+                Statistics statistics = item.getStatistics();
+                TopicDetails topicDetails = item.getTopicDetails();
+
+                YoutubeChannelEntity entity = new YoutubeChannelEntity();
+
+                // topicId 분류 및 저장
+                if (isPolitic(topicDetails)) {
+                    entity.setPolitic(true);
+                    if (checkVideoCount(statistics)) {
+                        // todo 최근 100개의 비디오 정보 가져오기
+                    } else entity.setTopicId(UNCLASSIFIED);
+                } else {
+                    entity.setPolitic(false);
+                    entity.setTopicId(ETC);
+                }
+                System.out.println(entity.getTopicId());
+
+                // 기타 정보 저장
+                entity.setChannelId(channelId);
+                entity.setTitle(snippet.getTitle());
+                entity.setDescription(snippet.getDescription());
+                entity.setCustomId(snippet.getCustomUrl());
+                entity.setSubscriberCount(statistics.getSubscriberCount());
+                entity.setVideoCount(statistics.getVideoCount());
+//                youtubeRepository.save(entity);
+            }
+        }
+    }
+
+    // 정치 카테고리 판단
+    public Boolean isPolitic(TopicDetails topicDetails) {
+        for (String category : topicDetails.getTopicCategories()) {
+            if (category.contains("Politics")) return true;
+        }
+        return false;
+    }
+
+    // 비디오 개수 판단
+    public Boolean checkVideoCount(Statistics statistics) {
+        return Integer.parseInt(statistics.getVideoCount()) >= 100;
     }
 }

@@ -50,4 +50,11 @@ public class YoutubeController {
             return ResponseEntity.status(500).body(ErrorMessages.SERVER_ERROR);
         }
     }
+
+    @PostMapping("/saveInfo")
+    public ResponseEntity<String> saveYoutubeChannelInfo(@RequestParam String channelId, @RequestBody ChannelApiResult channelApiResult) {
+        youtubeService.saveYoutubeChannelInfo(channelId, channelApiResult);
+        return ResponseEntity.ok("Success");
+    }
+
 }
