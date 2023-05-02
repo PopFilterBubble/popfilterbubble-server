@@ -125,34 +125,19 @@ public class YoutubeService {
 
     public void saveYoutubeChannelInfo(String channelId, ChannelApiResult channelApiResult) {
         if (channelApiResult != null && channelApiResult.getItems() != null) {
-            for (Items item : channelApiResult.getItems()) {
-                Snippet snippet = item.getSnippet();
-                Statistics statistics = item.getStatistics();
-                TopicDetails topicDetails = item.getTopicDetails();
+            Items item = channelApiResult.getItems()[0];
+            Snippet snippet = item.getSnippet();
+            Statistics statistics = item.getStatistics();
+            TopicDetails topicDetails = item.getTopicDetails();
+            YoutubeChannelEntity entity = new YoutubeChannelEntity();
 
-                YoutubeChannelEntity entity = new YoutubeChannelEntity();
-
-                // topicId 분류 및 저장
-                if (isPolitic(topicDetails)) {
-                    entity.setPolitic(true);
-                    if (checkVideoCount(statistics)) {
-                        // todo 최근 100개의 비디오 정보 가져오기
-                    } else entity.setTopicId(UNCLASSIFIED);
-                } else {
-                    entity.setPolitic(false);
-                    entity.setTopicId(ETC);
-                }
-                System.out.println(entity.getTopicId());
-
-                // 기타 정보 저장
-                entity.setChannelId(channelId);
-                entity.setTitle(snippet.getTitle());
-                entity.setDescription(snippet.getDescription());
-                entity.setCustomId(snippet.getCustomUrl());
-                entity.setSubscriberCount(statistics.getSubscriberCount());
-                entity.setVideoCount(statistics.getVideoCount());
-//                youtubeRepository.save(entity);
-            }
+            // topicId 분류 및 저장
+            if (isPolitic(topicDetails)) {
+                if (checkVideoCount(statistics)) {
+                    // todo 최근 100개의 비디오 정보 가져오기
+                } else entity.saveChannelInfo(snippet, statistics, channelId, true, UNCLASSIFIED);
+            } else entity.saveChannelInfo(snippet, statistics, channelId, false, ETC);
+            youtubeRepository.save(entity);
         }
     }
 
