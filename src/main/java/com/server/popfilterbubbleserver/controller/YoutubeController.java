@@ -57,4 +57,9 @@ public class YoutubeController {
         return ResponseEntity.ok("Success");
     }
 
+    @GetMapping("/politics")
+    public PoliticsDTO getPolitics(@RequestParam String[] channelId) throws IOException {
+        return youtubeService.getPoliticsDto(channelId);
+    }
+
 }

@@ -1,5 +1,6 @@
 package com.server.popfilterbubbleserver.service;
 
+import com.server.popfilterbubbleserver.controller.PoliticsDTO;
 import com.server.popfilterbubbleserver.service.api_response.channel.ChannelApiResult;
 import com.server.popfilterbubbleserver.service.api_response.channel.Items;
 import com.server.popfilterbubbleserver.service.api_response.channel.Snippet;
@@ -11,7 +12,12 @@ import com.server.popfilterbubbleserver.service.api_response.video_info.VideoInf
 import com.server.popfilterbubbleserver.module.YoutubeChannelEntity;
 import com.server.popfilterbubbleserver.repository.YoutubeRepository;
 import com.server.popfilterbubbleserver.util.ErrorMessages;
+
+import java.io.FileOutputStream;
 import java.io.IOException;
+import java.io.OutputStream;
+import java.util.ArrayList;
+
 import lombok.extern.slf4j.Slf4j;
 import org.jsoup.Jsoup;
 import org.jsoup.nodes.Document;
@@ -108,6 +114,34 @@ public class YoutubeService {
         return (ResponseEntity<VideoCommentApiResult>) getResponse(url, new VideoCommentApiResult());
     }
 
+    public PoliticsDTO getPoliticsDto(String[] channelIds) throws IOException {
+        int conservativeCount = 0;
+        int progressiveCount = 0;
+        int unclassifiedCount = 0;
+        int etcCount = 0;
+        for(String channelId : channelIds) {
+            if(channelId.contains("@"))
+                channelId = convertCustomIdToChannelId(channelId);
+            ChannelApiResult channelApiResult = getChannelInfoByChannelId(channelId).getBody();
+            saveYoutubeChannelInfo(channelId, channelApiResult);
+            YoutubeChannelEntity youtubeChannelEntity = youtubeRepository.findById(channelId).get();
+            if(youtubeChannelEntity.getTopicId() == CONSERVATIVE)
+                conservativeCount++;
+            else if(youtubeChannelEntity.getTopicId() == PROGRESSIVE)
+                progressiveCount++;
+            else if(youtubeChannelEntity.getTopicId() == UNCLASSIFIED)
+                unclassifiedCount++;
+            else if(youtubeChannelEntity.getTopicId() == ETC)
+                etcCount++;
+        }
+        return PoliticsDTO.builder()
+            .conservative(conservativeCount)
+            .progressive(progressiveCount)
+            .unclassified(unclassifiedCount)
+            .etc(etcCount)
+            .build();
+    }
+
     public String convertCustomIdToChannelId(String customId) throws IOException {
         String url = "https://www.youtube.com/" + customId;
         return extractChannelIdFromHtml(url);
@@ -124,6 +158,8 @@ public class YoutubeService {
     }
 
     public void saveYoutubeChannelInfo(String channelId, ChannelApiResult channelApiResult) {
+        if(youtubeRepository.existsById(channelId))
+            return;
         if (channelApiResult != null && channelApiResult.getItems() != null) {
             for (Items item : channelApiResult.getItems()) {
                 Snippet snippet = item.getSnippet();
@@ -137,6 +173,22 @@ public class YoutubeService {
                     entity.setPolitic(true);
                     if (checkVideoCount(statistics)) {
                         // todo 최근 100개의 비디오 정보 가져오기
+                        VideoApiResult videoApiResult = getVideoInfoByChannelId(channelId).getBody();
+                        com.server.popfilterbubbleserver.service.api_response.video.Items[] videoItems = videoApiResult.getItems();
+
+                        ArrayList<String> videoInfos = new ArrayList<>();
+                        for(int i = 0; i < videoItems.length; i++) {
+                            VideoInfoApiResult videoInfoApiResult = getVideoDetailInfoByVideoId(videoItems[i].getId().getVideoId()).getBody();
+                            VideoCommentApiResult videoCommentApiResult = getCommentInfoByVideoId(videoItems[i].getId().getVideoId()).getBody();
+                            videoInfos.add(videoInfoApiResult.getItems()[0].getSnippet().getTitle());
+                            videoInfos.add(videoInfoApiResult.getItems()[0].getSnippet().getDescription());
+                            videoInfos.add(videoCommentApiResult.getItems()[0].getSnippet().getTopLevelComment().getSnippet().getTextOriginal());
+                            com.server.popfilterbubbleserver.service.api_response.video_comment.Items[] commentItems = videoCommentApiResult.getItems();
+                            for(int j = 1; j < commentItems.length; j++)
+                                videoInfos.add(commentItems[j].getSnippet().getTopLevelComment().getSnippet().getTextOriginal());
+                            System.out.println(videoInfos);
+                        }
+                        entity.setTopicId(CONSERVATIVE);
                     } else entity.setTopicId(UNCLASSIFIED);
                 } else {
                     entity.setPolitic(false);
@@ -151,7 +203,7 @@ public class YoutubeService {
                 entity.setCustomId(snippet.getCustomUrl());
                 entity.setSubscriberCount(statistics.getSubscriberCount());
                 entity.setVideoCount(statistics.getVideoCount());
-//                youtubeRepository.save(entity);
+                youtubeRepository.save(entity);
             }
         }
     }
