@@ -42,7 +42,7 @@ spring:
     activate:
       on-profile: prod-db
   datasource:
-    username: root
+    username: admin
     url: jdbc:mysql://${mysql_url}:3306/popfilterbubble
     password: ${mysql_password}
   jpa:
@@ -50,6 +50,8 @@ spring:
       ddl-auto: update
     defer-datasource-initialization: true
     show-sql: true
+    database: mysql
+    database-platform: org.hibernate.dialect.MySQL5InnoDBDialect
 youtube_api_key: ${youtube_api_key}
 server:
   port: '80'
