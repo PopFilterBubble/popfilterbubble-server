@@ -39,8 +39,8 @@ public class YoutubeController {
         return youtubeService.getCommentInfoByVideoId(videoId).getBody();
     }
 
-    @GetMapping("/customId/{customId}")
-    public ResponseEntity<String> getChannelIdByCustomId(@PathVariable String customId) {
+    @GetMapping("/customId")
+    public ResponseEntity<String> getChannelIdByCustomId(@RequestParam String customId) {
         try {
             String channelId = youtubeService.convertCustomIdToChannelId(customId);
             return ResponseEntity.ok().body(channelId);
