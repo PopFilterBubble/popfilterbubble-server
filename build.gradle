@@ -19,6 +19,7 @@ repositories {
     maven { url 'https://repo.spring.io/milestone' }
     maven { url 'https://repo.spring.io/snapshot' }
     maven { url 'https://repo1.maven.org/maven2/' }
+    maven { url 'https://jitpack.io' }
 }
 
 dependencies {
@@ -43,6 +44,8 @@ dependencies {
     //swagger
     implementation group: 'io.springfox', name: 'springfox-swagger2', version: '2.9.2'
     implementation group: 'io.springfox', name: 'springfox-swagger-ui', version: '2.9.2'
+
+    implementation 'com.github.shin285:KOMORAN:3.3.9'
 }
 
 tasks.named('test') {

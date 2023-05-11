@@ -16,8 +16,15 @@ import com.server.popfilterbubbleserver.util.ErrorMessages;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.OutputStream;
-import java.util.ArrayList;
+import java.util.*;
 
+import io.swagger.models.auth.In;
+import kr.co.shineware.nlp.komoran.constant.DEFAULT_MODEL;
+import kr.co.shineware.nlp.komoran.core.Komoran;
+import kr.co.shineware.nlp.komoran.model.KomoranResult;
+import kr.co.shineware.nlp.komoran.model.Token;
+import lombok.NoArgsConstructor;
+import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.jsoup.Jsoup;
 import org.jsoup.nodes.Document;
@@ -33,6 +40,7 @@ import org.springframework.web.client.RestTemplate;
 
 @Service
 @Slf4j
+@RequiredArgsConstructor
 public class YoutubeService {
 
     private final int CONSERVATIVE = 0;
@@ -40,6 +48,7 @@ public class YoutubeService {
     private final int UNCLASSIFIED = 2;
     private final int ETC = 3;
 
+    private final SentiWord_infoDTO sentiWordInfoDTO;
 
     @Autowired
     private YoutubeRepository youtubeRepository;
@@ -51,6 +60,13 @@ public class YoutubeService {
         HttpHeaders headers = new HttpHeaders();
         headers.set("Accept", "application/json");
         return new HttpEntity<>(headers);
+    }
+    public Map<String, Integer> test(String channelId) throws IOException {
+        if(channelId.contains("@"))
+            channelId = convertCustomIdToChannelId(channelId);
+        ArrayList<String> ast = getAllInfoOfChannel(channelId);
+        Map<String, Integer> m = getPolicitalScore(ast);
+        return m;
     }
 
     public ResponseEntity<?> getResponse(String url, Object classType) {
@@ -157,10 +173,72 @@ public class YoutubeService {
         }
     }
 
+    public Map<String, Integer> getPolicitalScore(ArrayList<String> videoInfos){
+        Komoran komoran = new Komoran(DEFAULT_MODEL.FULL);
+        Map<String, Integer> resultMap = new HashMap<>();
+        Map<String, String> sentiWord_info = sentiWordInfoDTO.getSentiWord_info();
+
+        for(String str: videoInfos) {
+            if(str == null) continue;
+            str = str.replace('\n',' ').replace('\t',' ').replace('\r',' ');
+            KomoranResult result;
+            try {
+                result = komoran.analyze(str);
+            }catch (NullPointerException e){
+                System.out.println(str);
+                continue;
+            }
+            if(result == null) continue;
+            List<Token> tokenList;
+            try {
+                tokenList = result.getTokenList();
+            }catch (NullPointerException e){
+                System.out.println(str);
+                continue;
+            }
+            Set<String> NNList = new HashSet<>();
+            int sentiScore = 0;
+            for (Token token : tokenList) {
+                if(sentiWord_info.containsKey(token.getMorph()))
+                    sentiScore += Integer.parseInt(sentiWord_info.get(token.getMorph()));
+                if(token.getPos().contains("NN"))
+                    NNList.add(token.getMorph());
+            }
+            for(String st : NNList){
+                if(resultMap.containsKey(st))
+                    resultMap.put(st, resultMap.get(st) + sentiScore);
+                else
+                    resultMap.put(st, sentiScore);
+            }
+        }
+
+        return resultMap;
+    }
+
+    public ArrayList<String> getAllInfoOfChannel(String channelId){
+
+        VideoApiResult videoApiResult = getVideoInfoByChannelId(channelId).getBody();
+        com.server.popfilterbubbleserver.service.api_response.video.Items[] videoItems = videoApiResult.getItems();
+
+        ArrayList<String> videoInfos = new ArrayList<>();
+        for(int i = 0; i < videoItems.length; i++) {
+            VideoInfoApiResult videoInfoApiResult = getVideoDetailInfoByVideoId(videoItems[i].getId().getVideoId()).getBody();
+            VideoCommentApiResult videoCommentApiResult = getCommentInfoByVideoId(videoItems[i].getId().getVideoId()).getBody();
+            videoInfos.add(videoInfoApiResult.getItems()[0].getSnippet().getTitle());
+            videoInfos.add(videoInfoApiResult.getItems()[0].getSnippet().getDescription());
+            videoInfos.add(videoCommentApiResult.getItems()[0].getSnippet().getTopLevelComment().getSnippet().getTextOriginal());
+            com.server.popfilterbubbleserver.service.api_response.video_comment.Items[] commentItems = videoCommentApiResult.getItems();
+            for(int j = 1; j < commentItems.length; j++)
+                videoInfos.add(commentItems[j].getSnippet().getTopLevelComment().getSnippet().getTextOriginal());
+        }
+        return videoInfos;
+    }
+
     public void saveYoutubeChannelInfo(String channelId, ChannelApiResult channelApiResult) {
         if(youtubeRepository.existsById(channelId))
             return;
         if (channelApiResult != null && channelApiResult.getItems() != null) {
+
             for (Items item : channelApiResult.getItems()) {
                 Snippet snippet = item.getSnippet();
                 Statistics statistics = item.getStatistics();
@@ -173,21 +251,7 @@ public class YoutubeService {
                     entity.setPolitic(true);
                     if (checkVideoCount(statistics)) {
                         // todo 최근 100개의 비디오 정보 가져오기
-                        VideoApiResult videoApiResult = getVideoInfoByChannelId(channelId).getBody();
-                        com.server.popfilterbubbleserver.service.api_response.video.Items[] videoItems = videoApiResult.getItems();
 
-                        ArrayList<String> videoInfos = new ArrayList<>();
-                        for(int i = 0; i < videoItems.length; i++) {
-                            VideoInfoApiResult videoInfoApiResult = getVideoDetailInfoByVideoId(videoItems[i].getId().getVideoId()).getBody();
-                            VideoCommentApiResult videoCommentApiResult = getCommentInfoByVideoId(videoItems[i].getId().getVideoId()).getBody();
-                            videoInfos.add(videoInfoApiResult.getItems()[0].getSnippet().getTitle());
-                            videoInfos.add(videoInfoApiResult.getItems()[0].getSnippet().getDescription());
-                            videoInfos.add(videoCommentApiResult.getItems()[0].getSnippet().getTopLevelComment().getSnippet().getTextOriginal());
-                            com.server.popfilterbubbleserver.service.api_response.video_comment.Items[] commentItems = videoCommentApiResult.getItems();
-                            for(int j = 1; j < commentItems.length; j++)
-                                videoInfos.add(commentItems[j].getSnippet().getTopLevelComment().getSnippet().getTextOriginal());
-                            System.out.println(videoInfos);
-                        }
                         entity.setTopicId(CONSERVATIVE);
                     } else entity.setTopicId(UNCLASSIFIED);
                 } else {

@@ -7,6 +7,7 @@ import com.server.popfilterbubbleserver.service.api_response.video_comment.Video
 import com.server.popfilterbubbleserver.service.api_response.video_info.VideoInfoApiResult;
 import com.server.popfilterbubbleserver.util.ErrorMessages;
 import java.io.IOException;
+import java.util.Map;
 
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
@@ -60,6 +61,11 @@ public class YoutubeController {
     @GetMapping("/politics")
     public PoliticsDTO getPolitics(@RequestParam String[] channelId) throws IOException {
         return youtubeService.getPoliticsDto(channelId);
+    }
+
+    @GetMapping("/test")
+    public Map<String, Integer> test(@RequestParam String t) throws IOException {
+        return youtubeService.test(t);
     }
 
 }
