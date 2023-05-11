@@ -1,19 +1,15 @@
 package com.server.popfilterbubbleserver.module;
 
-
-import lombok.Getter;
-import lombok.NoArgsConstructor;
-
+import com.server.popfilterbubbleserver.service.api_response.channel.Snippet;
+import com.server.popfilterbubbleserver.service.api_response.channel.Statistics;
 import javax.persistence.Column;
 import javax.persistence.Entity;
 import javax.persistence.Id;
 import javax.persistence.Table;
-import lombok.Setter;
+import lombok.Getter;
 
 @Entity
-@NoArgsConstructor
 @Getter
-@Setter
 @Table(name = "youtube_channel")
 public class YoutubeChannelEntity {
     @Id
@@ -40,4 +36,15 @@ public class YoutubeChannelEntity {
 
     @Column(name = "politic")
     private Boolean politic;
+
+    public void saveChannelInfo(Snippet snippet, Statistics statistics, String channelId, Boolean politic, Integer topicId) {
+        this.channelId = channelId;
+        this.title = snippet.getTitle();
+        this.description = snippet.getDescription();
+        this.customId = snippet.getCustomUrl();
+        this.subscriberCount = statistics.getSubscriberCount();
+        this.videoCount = statistics.getVideoCount();
+        this.topicId = topicId;
+        this.politic = politic;
+    }
 }
