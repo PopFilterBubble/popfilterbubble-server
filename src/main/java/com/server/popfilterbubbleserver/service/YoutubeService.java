@@ -115,7 +115,7 @@ public class YoutubeService {
 
     public String extractChannelIdFromHtml(String url) throws IOException {
         Document document = Jsoup.connect(url).get();
-        Element channelIdElement = document.selectFirst("meta[itemprop=channelId]");
+        Element channelIdElement = document.selectFirst("meta[itemprop=identifier]");
         if (channelIdElement != null) {
             return channelIdElement.attr("content");
         } else {
