@@ -1,6 +1,8 @@
 package com.server.popfilterbubbleserver.service;
 
 import com.server.popfilterbubbleserver.controller.PoliticsDTO;
+import com.server.popfilterbubbleserver.module.YoutubeChannelEntity;
+import com.server.popfilterbubbleserver.repository.YoutubeRepository;
 import com.server.popfilterbubbleserver.service.api_response.channel.ChannelApiResult;
 import com.server.popfilterbubbleserver.service.api_response.channel.Items;
 import com.server.popfilterbubbleserver.service.api_response.channel.Snippet;
@@ -9,27 +11,23 @@ import com.server.popfilterbubbleserver.service.api_response.channel.TopicDetail
 import com.server.popfilterbubbleserver.service.api_response.video.VideoApiResult;
 import com.server.popfilterbubbleserver.service.api_response.video_comment.VideoCommentApiResult;
 import com.server.popfilterbubbleserver.service.api_response.video_info.VideoInfoApiResult;
-import com.server.popfilterbubbleserver.module.YoutubeChannelEntity;
-import com.server.popfilterbubbleserver.repository.YoutubeRepository;
 import com.server.popfilterbubbleserver.util.ErrorMessages;
-
-import java.io.FileOutputStream;
 import java.io.IOException;
-import java.io.OutputStream;
-import java.util.*;
-
-import io.swagger.models.auth.In;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
 import kr.co.shineware.nlp.komoran.constant.DEFAULT_MODEL;
 import kr.co.shineware.nlp.komoran.core.Komoran;
 import kr.co.shineware.nlp.komoran.model.KomoranResult;
 import kr.co.shineware.nlp.komoran.model.Token;
-import lombok.NoArgsConstructor;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.jsoup.Jsoup;
 import org.jsoup.nodes.Document;
 import org.jsoup.nodes.Element;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpHeaders;
@@ -43,15 +41,14 @@ import org.springframework.web.client.RestTemplate;
 @RequiredArgsConstructor
 public class YoutubeService {
 
+    private final YoutubeRepository youtubeRepository;
+
     private final int CONSERVATIVE = 0;
     private final int PROGRESSIVE = 1;
     private final int UNCLASSIFIED = 2;
     private final int ETC = 3;
 
     private final SentiWord_infoDTO sentiWordInfoDTO;
-
-    @Autowired
-    private YoutubeRepository youtubeRepository;
 
     @Value("${youtube_api_key}")
     private String youtube_api_key;
@@ -173,6 +170,7 @@ public class YoutubeService {
         }
     }
 
+
     public Map<String, Integer> getPolicitalScore(ArrayList<String> videoInfos){
         Komoran komoran = new Komoran(DEFAULT_MODEL.FULL);
         Map<String, Integer> resultMap = new HashMap<>();
@@ -235,40 +233,24 @@ public class YoutubeService {
     }
 
     public void saveYoutubeChannelInfo(String channelId, ChannelApiResult channelApiResult) {
-        if(youtubeRepository.existsById(channelId))
-            return;
         if (channelApiResult != null && channelApiResult.getItems() != null) {
+            Items item = channelApiResult.getItems()[0];
+            Snippet snippet = item.getSnippet();
+            Statistics statistics = item.getStatistics();
+            TopicDetails topicDetails = item.getTopicDetails();
+            YoutubeChannelEntity entity = new YoutubeChannelEntity();
 
-            for (Items item : channelApiResult.getItems()) {
-                Snippet snippet = item.getSnippet();
-                Statistics statistics = item.getStatistics();
-                TopicDetails topicDetails = item.getTopicDetails();
-
-                YoutubeChannelEntity entity = new YoutubeChannelEntity();
-
-                // topicId 분류 및 저장
-                if (isPolitic(topicDetails)) {
-                    entity.setPolitic(true);
-                    if (checkVideoCount(statistics)) {
+            // topicId 분류 및 저장
+            if (isPolitic(topicDetails)) {
+                if (checkVideoCount(statistics)) {
+                    ResponseEntity<VideoApiResult> videoApiResultResponse = getVideoInfoByChannelId(channelId);
+                    VideoApiResult videoApiResult = videoApiResultResponse.getBody();
+                    if (videoApiResult != null && videoApiResult.getItems() != null) {
                         // todo 최근 100개의 비디오 정보 가져오기
-
-                        entity.setTopicId(CONSERVATIVE);
-                    } else entity.setTopicId(UNCLASSIFIED);
-                } else {
-                    entity.setPolitic(false);
-                    entity.setTopicId(ETC);
-                }
-                System.out.println(entity.getTopicId());
-
-                // 기타 정보 저장
-                entity.setChannelId(channelId);
-                entity.setTitle(snippet.getTitle());
-                entity.setDescription(snippet.getDescription());
-                entity.setCustomId(snippet.getCustomUrl());
-                entity.setSubscriberCount(statistics.getSubscriberCount());
-                entity.setVideoCount(statistics.getVideoCount());
-                youtubeRepository.save(entity);
-            }
+                    }
+                } else entity.saveChannelInfo(snippet, statistics, channelId, true, UNCLASSIFIED);
+            } else entity.saveChannelInfo(snippet, statistics, channelId, false, ETC);
+            youtubeRepository.save(entity);
         }
     }
 
