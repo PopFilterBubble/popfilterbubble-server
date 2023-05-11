@@ -114,14 +114,29 @@ public class YoutubeService {
     }
 
     public String extractChannelIdFromHtml(String url) throws IOException {
-        Document document = Jsoup.connect(url).get();
-        Element channelIdElement = document.selectFirst("meta[itemprop=identifier]");
-        if (channelIdElement != null) {
-            return channelIdElement.attr("content");
-        } else {
-            throw new IOException(ErrorMessages.CHANNEL_ID_NOT_FOUND);
+        int retries = 5;
+        int waitTime = 1000;
+
+        for (int i = 0; i < retries; i++) {
+            try {
+                Document document = Jsoup.connect(url).get();
+                Element channelIdElement = document.selectFirst("meta[itemprop=identifier]");
+                if (channelIdElement != null) {
+                    return channelIdElement.attr("content");
+                }
+            } catch (IOException e) {
+                try {
+                    Thread.sleep(waitTime);
+                } catch (InterruptedException ex) {
+                    ex.printStackTrace();
+                }
+            }
         }
+
+        throw new IOException(ErrorMessages.CHANNEL_ID_NOT_FOUND);
     }
+
+
 
     public void saveYoutubeChannelInfo(String channelId, ChannelApiResult channelApiResult) {
         if (channelApiResult != null && channelApiResult.getItems() != null) {
@@ -134,7 +149,18 @@ public class YoutubeService {
             // topicId 분류 및 저장
             if (isPolitic(topicDetails)) {
                 if (checkVideoCount(statistics)) {
-                    // todo 최근 100개의 비디오 정보 가져오기
+                    ResponseEntity<VideoApiResult> videoApiResultResponse = getVideoInfoByChannelId(channelId);
+                    VideoApiResult videoApiResult = videoApiResultResponse.getBody();
+                    if (videoApiResult != null && videoApiResult.getItems() != null) {
+                        // 최근 100개의 비디오 정보 가져오기
+//                        for (Items item : videoApiResult.getItems()) {
+//                            // 비디오 정보 처리 로직
+//                            // 예시: String videoId = videoItem.getId().getVideoId();
+//                            //       ResponseEntity<VideoInfoApiResult> videoInfoResponse = getVideoDetailInfoByVideoId(videoId);
+//                            //       VideoInfoApiResult videoInfoResult = videoInfoResponse.getBody();
+//                            //       ... 추가적인 비디오 정보 처리 로직 ...
+//                        }
+                    }
                 } else entity.saveChannelInfo(snippet, statistics, channelId, true, UNCLASSIFIED);
             } else entity.saveChannelInfo(snippet, statistics, channelId, false, ETC);
             youtubeRepository.save(entity);
