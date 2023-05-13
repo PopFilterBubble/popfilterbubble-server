@@ -3,22 +3,11 @@ package com.server.popfilterbubbleserver.service;
 import com.server.popfilterbubbleserver.controller.PoliticsDTO;
 import com.server.popfilterbubbleserver.module.YoutubeChannelEntity;
 import com.server.popfilterbubbleserver.repository.YoutubeRepository;
-import com.server.popfilterbubbleserver.service.api_response.channel.ChannelApiResult;
-import com.server.popfilterbubbleserver.service.api_response.channel.Items;
-import com.server.popfilterbubbleserver.service.api_response.channel.Snippet;
-import com.server.popfilterbubbleserver.service.api_response.channel.Statistics;
-import com.server.popfilterbubbleserver.service.api_response.channel.TopicDetails;
+import com.server.popfilterbubbleserver.service.api_response.channel.*;
 import com.server.popfilterbubbleserver.service.api_response.video.VideoApiResult;
 import com.server.popfilterbubbleserver.service.api_response.video_comment.VideoCommentApiResult;
 import com.server.popfilterbubbleserver.service.api_response.video_info.VideoInfoApiResult;
 import com.server.popfilterbubbleserver.util.ErrorMessages;
-import java.io.IOException;
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.HashSet;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
 import kr.co.shineware.nlp.komoran.constant.DEFAULT_MODEL;
 import kr.co.shineware.nlp.komoran.core.Komoran;
 import kr.co.shineware.nlp.komoran.model.KomoranResult;
@@ -36,6 +25,9 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestTemplate;
 
+import java.io.IOException;
+import java.util.*;
+
 @Service
 @Slf4j
 @RequiredArgsConstructor
@@ -49,6 +41,7 @@ public class YoutubeService {
     private final int ETC = 3;
 
     private final SentiWord_infoDTO sentiWordInfoDTO;
+    private final PoliticResultDTO politicResultDTO;
 
     @Value("${youtube_api_key}")
     private String youtube_api_key;
@@ -58,12 +51,36 @@ public class YoutubeService {
         headers.set("Accept", "application/json");
         return new HttpEntity<>(headers);
     }
-    public Map<String, Integer> test(String channelId) throws IOException {
-        if(channelId.contains("@"))
-            channelId = convertCustomIdToChannelId(channelId);
+    public Integer getPoliticScore(String channelId) {
         ArrayList<String> ast = getAllInfoOfChannel(channelId);
         Map<String, Integer> m = getPolicitalScore(ast);
-        return m;
+        double similarityToConservative = calculateSimilarity(m,politicResultDTO.getConservative());
+        double similarityToProgressive = calculateSimilarity( m,politicResultDTO.getProgressive());
+        if(similarityToProgressive > similarityToConservative) {
+            return PROGRESSIVE;
+        } else if(similarityToProgressive < similarityToConservative) {
+            return CONSERVATIVE;
+        } else {
+            return UNCLASSIFIED;
+        }
+    }
+
+    private double calculateSimilarity(Map<String, Integer> map1, Map<String, Integer> map2) {
+        double similarCount = 0;
+
+        for (Map.Entry<String, Integer> entry : map1.entrySet()) {
+            String key = entry.getKey();
+            double value1 = entry.getValue();
+            double value2 = map2.getOrDefault(key, 0);
+            if(value1 > 0 && value2 > 0) {
+                similarCount = similarCount + 1;
+            }
+            if(value1 < 0 && value2 < 0) {
+                similarCount = similarCount + 1;
+            }
+        }
+
+        return similarCount;
     }
 
     public ResponseEntity<?> getResponse(String url, Object classType) {
@@ -73,7 +90,6 @@ public class YoutubeService {
         for (int i = 0; i < 10; i++) {
             try {
                 response = restTemplate.exchange(url, HttpMethod.GET, setHeaders(), classType.getClass());
-                log.info("response : " + response.getBody());
                 return response;
             } catch (Exception e) {
                 log.error(i + "번 url : " + url + " error : " + e.getMessage());
@@ -161,13 +177,26 @@ public class YoutubeService {
     }
 
     public String extractChannelIdFromHtml(String url) throws IOException {
-        Document document = Jsoup.connect(url).get();
-        Element channelIdElement = document.selectFirst("meta[itemprop=channelId]");
-        if (channelIdElement != null) {
-            return channelIdElement.attr("content");
-        } else {
-            throw new IOException(ErrorMessages.CHANNEL_ID_NOT_FOUND);
+        int retries = 5;
+        int waitTime = 1000;
+
+        for (int i = 0; i < retries; i++) {
+            try {
+                Document document = Jsoup.connect(url).get();
+                Element channelIdElement = document.selectFirst("meta[itemprop=identifier]");
+                if (channelIdElement != null) {
+                    return channelIdElement.attr("content");
+                }
+            } catch (IOException e) {
+                try {
+                    Thread.sleep(waitTime);
+                } catch (InterruptedException ex) {
+                    ex.printStackTrace();
+                }
+            }
         }
+
+        throw new IOException(ErrorMessages.CHANNEL_ID_NOT_FOUND);
     }
 
 
@@ -221,10 +250,14 @@ public class YoutubeService {
         ArrayList<String> videoInfos = new ArrayList<>();
         for(int i = 0; i < videoItems.length; i++) {
             VideoInfoApiResult videoInfoApiResult = getVideoDetailInfoByVideoId(videoItems[i].getId().getVideoId()).getBody();
-            VideoCommentApiResult videoCommentApiResult = getCommentInfoByVideoId(videoItems[i].getId().getVideoId()).getBody();
-            videoInfos.add(videoInfoApiResult.getItems()[0].getSnippet().getTitle());
-            videoInfos.add(videoInfoApiResult.getItems()[0].getSnippet().getDescription());
-            videoInfos.add(videoCommentApiResult.getItems()[0].getSnippet().getTopLevelComment().getSnippet().getTextOriginal());
+            ResponseEntity<VideoCommentApiResult> videoCommentApiResult1 = getCommentInfoByVideoId(videoItems[i].getId().getVideoId());
+            if(videoCommentApiResult1 == null) continue;
+            VideoCommentApiResult videoCommentApiResult = videoCommentApiResult1.getBody();
+            if(videoCommentApiResult.getItems().length != 0) {
+                videoInfos.add(videoInfoApiResult.getItems()[0].getSnippet().getTitle());
+                videoInfos.add(videoInfoApiResult.getItems()[0].getSnippet().getDescription());
+                videoInfos.add(videoCommentApiResult.getItems()[0].getSnippet().getTopLevelComment().getSnippet().getTextOriginal());
+            }
             com.server.popfilterbubbleserver.service.api_response.video_comment.Items[] commentItems = videoCommentApiResult.getItems();
             for(int j = 1; j < commentItems.length; j++)
                 videoInfos.add(commentItems[j].getSnippet().getTopLevelComment().getSnippet().getTextOriginal());
@@ -233,6 +266,8 @@ public class YoutubeService {
     }
 
     public void saveYoutubeChannelInfo(String channelId, ChannelApiResult channelApiResult) {
+        if(youtubeRepository.existsById(channelId))
+            return;
         if (channelApiResult != null && channelApiResult.getItems() != null) {
             Items item = channelApiResult.getItems()[0];
             Snippet snippet = item.getSnippet();
@@ -246,7 +281,13 @@ public class YoutubeService {
                     ResponseEntity<VideoApiResult> videoApiResultResponse = getVideoInfoByChannelId(channelId);
                     VideoApiResult videoApiResult = videoApiResultResponse.getBody();
                     if (videoApiResult != null && videoApiResult.getItems() != null) {
-                        // todo 최근 100개의 비디오 정보 가져오기
+                        Integer politicScore = getPoliticScore(channelId);
+                        if(politicScore == CONSERVATIVE)
+                            entity.saveChannelInfo(snippet, statistics, channelId, true, CONSERVATIVE);
+                        else if(politicScore == PROGRESSIVE)
+                            entity.saveChannelInfo(snippet, statistics, channelId, true, PROGRESSIVE);
+                        else
+                            entity.saveChannelInfo(snippet, statistics, channelId, true, UNCLASSIFIED);
                     }
                 } else entity.saveChannelInfo(snippet, statistics, channelId, true, UNCLASSIFIED);
             } else entity.saveChannelInfo(snippet, statistics, channelId, false, ETC);
