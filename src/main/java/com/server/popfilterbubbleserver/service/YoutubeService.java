@@ -262,6 +262,8 @@ public class YoutubeService {
     }
 
     public void saveYoutubeChannelInfo(String channelId, ChannelApiResult channelApiResult) {
+        if(youtubeRepository.existsById(channelId))
+            return;
         if (channelApiResult != null && channelApiResult.getItems() != null) {
             Items item = channelApiResult.getItems()[0];
             Snippet snippet = item.getSnippet();
