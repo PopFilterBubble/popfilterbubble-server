@@ -14,11 +14,13 @@ import com.server.popfilterbubbleserver.service.api_response.video_info.VideoInf
 import com.server.popfilterbubbleserver.util.ErrorMessages;
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.TreeMap;
 import kr.co.shineware.nlp.komoran.constant.DEFAULT_MODEL;
 import kr.co.shineware.nlp.komoran.core.Komoran;
 import kr.co.shineware.nlp.komoran.model.KomoranResult;
@@ -59,11 +61,16 @@ public class YoutubeService {
         return new HttpEntity<>(headers);
     }
     public Map<String, Integer> test(String channelId) throws IOException {
-        if(channelId.contains("@"))
+        if (channelId.contains("@")) {
             channelId = convertCustomIdToChannelId(channelId);
+        }
         ArrayList<String> ast = getAllInfoOfChannel(channelId);
         Map<String, Integer> m = getPolicitalScore(ast);
-        return m;
+
+        Map<String, Integer> sortedMap = new TreeMap<>(Comparator.comparingInt(m::get));
+        sortedMap.putAll(m);
+
+        return sortedMap;
     }
 
     public ResponseEntity<?> getResponse(String url, Object classType) {
@@ -161,13 +168,26 @@ public class YoutubeService {
     }
 
     public String extractChannelIdFromHtml(String url) throws IOException {
-        Document document = Jsoup.connect(url).get();
-        Element channelIdElement = document.selectFirst("meta[itemprop=channelId]");
-        if (channelIdElement != null) {
-            return channelIdElement.attr("content");
-        } else {
-            throw new IOException(ErrorMessages.CHANNEL_ID_NOT_FOUND);
+        int retries = 5;
+        int waitTime = 1000;
+
+        for (int i = 0; i < retries; i++) {
+            try {
+                Document document = Jsoup.connect(url).get();
+                Element channelIdElement = document.selectFirst("meta[itemprop=identifier]");
+                if (channelIdElement != null) {
+                    return channelIdElement.attr("content");
+                }
+            } catch (IOException e) {
+                try {
+                    Thread.sleep(waitTime);
+                } catch (InterruptedException ex) {
+                    ex.printStackTrace();
+                }
+            }
         }
+
+        throw new IOException(ErrorMessages.CHANNEL_ID_NOT_FOUND);
     }
 
 
