@@ -177,13 +177,26 @@ public class YoutubeService {
     }
 
     public String extractChannelIdFromHtml(String url) throws IOException {
-        Document document = Jsoup.connect(url).get();
-        Element channelIdElement = document.selectFirst("meta[itemprop=channelId]");
-        if (channelIdElement != null) {
-            return channelIdElement.attr("content");
-        } else {
-            throw new IOException(ErrorMessages.CHANNEL_ID_NOT_FOUND);
+        int retries = 5;
+        int waitTime = 1000;
+
+        for (int i = 0; i < retries; i++) {
+            try {
+                Document document = Jsoup.connect(url).get();
+                Element channelIdElement = document.selectFirst("meta[itemprop=identifier]");
+                if (channelIdElement != null) {
+                    return channelIdElement.attr("content");
+                }
+            } catch (IOException e) {
+                try {
+                    Thread.sleep(waitTime);
+                } catch (InterruptedException ex) {
+                    ex.printStackTrace();
+                }
+            }
         }
+
+        throw new IOException(ErrorMessages.CHANNEL_ID_NOT_FOUND);
     }
 
 
