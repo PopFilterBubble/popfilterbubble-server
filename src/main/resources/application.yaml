@@ -34,10 +34,6 @@ spring:
 
 server:
   port: '8080'
-  connection-timeout: 1800000
-  servlet:
-    session:
-      timeout: 1800000
 
 ---
 
@@ -59,7 +55,3 @@ spring:
 youtube_api_key: ${youtube_api_key}
 server:
   port: '80'
-  connection-timeout: 1800000
-  servlet:
-    session:
-      timeout: 1800000

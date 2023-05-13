@@ -3,22 +3,11 @@ package com.server.popfilterbubbleserver.service;
 import com.server.popfilterbubbleserver.controller.PoliticsDTO;
 import com.server.popfilterbubbleserver.module.YoutubeChannelEntity;
 import com.server.popfilterbubbleserver.repository.YoutubeRepository;
-import com.server.popfilterbubbleserver.service.api_response.channel.ChannelApiResult;
-import com.server.popfilterbubbleserver.service.api_response.channel.Items;
-import com.server.popfilterbubbleserver.service.api_response.channel.Snippet;
-import com.server.popfilterbubbleserver.service.api_response.channel.Statistics;
-import com.server.popfilterbubbleserver.service.api_response.channel.TopicDetails;
+import com.server.popfilterbubbleserver.service.api_response.channel.*;
 import com.server.popfilterbubbleserver.service.api_response.video.VideoApiResult;
 import com.server.popfilterbubbleserver.service.api_response.video_comment.VideoCommentApiResult;
 import com.server.popfilterbubbleserver.service.api_response.video_info.VideoInfoApiResult;
 import com.server.popfilterbubbleserver.util.ErrorMessages;
-import java.io.IOException;
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.HashSet;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
 import kr.co.shineware.nlp.komoran.constant.DEFAULT_MODEL;
 import kr.co.shineware.nlp.komoran.core.Komoran;
 import kr.co.shineware.nlp.komoran.model.KomoranResult;
@@ -35,6 +24,9 @@ import org.springframework.http.HttpMethod;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestTemplate;
+
+import java.io.IOException;
+import java.util.*;
 
 @Service
 @Slf4j
@@ -98,7 +90,6 @@ public class YoutubeService {
         for (int i = 0; i < 10; i++) {
             try {
                 response = restTemplate.exchange(url, HttpMethod.GET, setHeaders(), classType.getClass());
-                log.info("response : " + response.getBody());
                 return response;
             } catch (Exception e) {
                 log.error(i + "번 url : " + url + " error : " + e.getMessage());
