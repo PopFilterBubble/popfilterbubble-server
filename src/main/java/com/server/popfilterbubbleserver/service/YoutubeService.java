@@ -27,6 +27,7 @@ import org.springframework.web.client.RestTemplate;
 
 import java.io.IOException;
 import java.util.*;
+import java.util.stream.Collectors;
 
 @Service
 @Slf4j
@@ -54,8 +55,24 @@ public class YoutubeService {
     public Integer getPoliticScore(String channelId) {
         ArrayList<String> ast = getAllInfoOfChannel(channelId);
         Map<String, Integer> m = getPolicitalScore(ast);
-        double similarityToConservative = calculateSimilarity(m,politicResultDTO.getConservative());
-        double similarityToProgressive = calculateSimilarity( m,politicResultDTO.getProgressive());
+        // Map의 값을 절댓값 기준으로 내림차순으로 정렬
+        List<Map.Entry<String, Integer>> sortedList = m.entrySet()
+                .stream()
+                .sorted(Map.Entry.comparingByValue(Comparator.reverseOrder()))
+                .collect(Collectors.toList());
+
+        // 상위 100개 요소 선택
+        List<Map.Entry<String, Integer>> top100Entries = sortedList.subList(0, Math.min(100, sortedList.size()));
+
+        // 상위 100개 요소를 새로운 Map에 추가
+        Map<String, Integer> newMap = new LinkedHashMap<>();
+        for (Map.Entry<String, Integer> entry : top100Entries) {
+            newMap.put(entry.getKey(), entry.getValue());
+        }
+        double similarityToConservative = calculateSimilarity(newMap,politicResultDTO.getConservative());
+        double similarityToProgressive = calculateSimilarity( newMap,politicResultDTO.getProgressive());
+        System.out.println("conservative : " + similarityToConservative);
+        System.out.println("progressive : " + similarityToProgressive);
         if(similarityToProgressive > similarityToConservative) {
             return PROGRESSIVE;
         } else if(similarityToProgressive < similarityToConservative) {
@@ -112,7 +129,7 @@ public class YoutubeService {
         return (ResponseEntity<ChannelApiResult>) getResponse(url, new ChannelApiResult());
     }
 
-    public ResponseEntity<VideoApiResult> getVideoInfoByChannelId(String channelID) {
+    public List<ResponseEntity<VideoApiResult>> getVideoInfoByChannelId(String channelID) {
         String url = "https://youtube.googleapis.com/youtube/v3/search";
         url += "?part=snippet";
         url += "&channelId=" + channelID;
@@ -120,7 +137,20 @@ public class YoutubeService {
         url += "&order=date";
         url += "&key=" + youtube_api_key;
 
-        return (ResponseEntity<VideoApiResult>) getResponse(url, new VideoApiResult());
+        ResponseEntity<VideoApiResult> videoApiResult = (ResponseEntity<VideoApiResult>) getResponse(url, new VideoApiResult());
+        if (videoApiResult == null) {
+            return null;
+        }
+        String nextPageToken = videoApiResult.getBody().getNextPageToken();
+
+        url += "&pageToken=" + nextPageToken;
+
+        ResponseEntity<VideoApiResult> videoApiResult2 = (ResponseEntity<VideoApiResult>) getResponse(url, new VideoApiResult());
+
+        List<ResponseEntity<VideoApiResult>> list = new ArrayList<>();
+        list.add(videoApiResult);
+        list.add(videoApiResult2);
+        return list;
     }
 
     public ResponseEntity<VideoInfoApiResult> getVideoDetailInfoByVideoId(String videoId) {
@@ -228,7 +258,7 @@ public class YoutubeService {
             for (Token token : tokenList) {
                 if(sentiWord_info.containsKey(token.getMorph()))
                     sentiScore += Integer.parseInt(sentiWord_info.get(token.getMorph()));
-                if(token.getPos().contains("NN"))
+                if(token.getPos().contains("NNP"))
                     NNList.add(token.getMorph());
             }
             for(String st : NNList){
@@ -244,23 +274,25 @@ public class YoutubeService {
 
     public ArrayList<String> getAllInfoOfChannel(String channelId){
 
-        VideoApiResult videoApiResult = getVideoInfoByChannelId(channelId).getBody();
-        com.server.popfilterbubbleserver.service.api_response.video.Items[] videoItems = videoApiResult.getItems();
-
+        List<ResponseEntity<VideoApiResult>> videoApiResults = getVideoInfoByChannelId(channelId);
         ArrayList<String> videoInfos = new ArrayList<>();
-        for(int i = 0; i < videoItems.length; i++) {
-            VideoInfoApiResult videoInfoApiResult = getVideoDetailInfoByVideoId(videoItems[i].getId().getVideoId()).getBody();
-            ResponseEntity<VideoCommentApiResult> videoCommentApiResult1 = getCommentInfoByVideoId(videoItems[i].getId().getVideoId());
-            if(videoCommentApiResult1 == null) continue;
-            VideoCommentApiResult videoCommentApiResult = videoCommentApiResult1.getBody();
-            if(videoCommentApiResult.getItems().length != 0) {
-                videoInfos.add(videoInfoApiResult.getItems()[0].getSnippet().getTitle());
-                videoInfos.add(videoInfoApiResult.getItems()[0].getSnippet().getDescription());
-                videoInfos.add(videoCommentApiResult.getItems()[0].getSnippet().getTopLevelComment().getSnippet().getTextOriginal());
+        for(ResponseEntity<VideoApiResult> videoApiResultResponse : videoApiResults) {
+            VideoApiResult videoApiResult = videoApiResultResponse.getBody();
+            com.server.popfilterbubbleserver.service.api_response.video.Items[] videoItems = videoApiResult.getItems();
+            for (int i = 0; i < videoItems.length; i++) {
+                VideoInfoApiResult videoInfoApiResult = getVideoDetailInfoByVideoId(videoItems[i].getId().getVideoId()).getBody();
+                ResponseEntity<VideoCommentApiResult> videoCommentApiResult1 = getCommentInfoByVideoId(videoItems[i].getId().getVideoId());
+                if (videoCommentApiResult1 == null) continue;
+                VideoCommentApiResult videoCommentApiResult = videoCommentApiResult1.getBody();
+                if (videoCommentApiResult.getItems().length != 0) {
+                    videoInfos.add(videoInfoApiResult.getItems()[0].getSnippet().getTitle());
+                    videoInfos.add(videoInfoApiResult.getItems()[0].getSnippet().getDescription());
+                    videoInfos.add(videoCommentApiResult.getItems()[0].getSnippet().getTopLevelComment().getSnippet().getTextOriginal());
+                }
+                com.server.popfilterbubbleserver.service.api_response.video_comment.Items[] commentItems = videoCommentApiResult.getItems();
+                for (int j = 1; j < commentItems.length; j++)
+                    videoInfos.add(commentItems[j].getSnippet().getTopLevelComment().getSnippet().getTextOriginal());
             }
-            com.server.popfilterbubbleserver.service.api_response.video_comment.Items[] commentItems = videoCommentApiResult.getItems();
-            for(int j = 1; j < commentItems.length; j++)
-                videoInfos.add(commentItems[j].getSnippet().getTopLevelComment().getSnippet().getTextOriginal());
         }
         return videoInfos;
     }
@@ -278,17 +310,13 @@ public class YoutubeService {
             // topicId 분류 및 저장
             if (isPolitic(topicDetails)) {
                 if (checkVideoCount(statistics)) {
-                    ResponseEntity<VideoApiResult> videoApiResultResponse = getVideoInfoByChannelId(channelId);
-                    VideoApiResult videoApiResult = videoApiResultResponse.getBody();
-                    if (videoApiResult != null && videoApiResult.getItems() != null) {
-                        Integer politicScore = getPoliticScore(channelId);
-                        if(politicScore == CONSERVATIVE)
-                            entity.saveChannelInfo(snippet, statistics, channelId, true, CONSERVATIVE);
-                        else if(politicScore == PROGRESSIVE)
-                            entity.saveChannelInfo(snippet, statistics, channelId, true, PROGRESSIVE);
-                        else
-                            entity.saveChannelInfo(snippet, statistics, channelId, true, UNCLASSIFIED);
-                    }
+                    Integer politicScore = getPoliticScore(channelId);
+                    if(politicScore == CONSERVATIVE)
+                        entity.saveChannelInfo(snippet, statistics, channelId, true, CONSERVATIVE);
+                    else if(politicScore == PROGRESSIVE)
+                        entity.saveChannelInfo(snippet, statistics, channelId, true, PROGRESSIVE);
+                    else
+                        entity.saveChannelInfo(snippet, statistics, channelId, true, UNCLASSIFIED);
                 } else entity.saveChannelInfo(snippet, statistics, channelId, true, UNCLASSIFIED);
             } else entity.saveChannelInfo(snippet, statistics, channelId, false, ETC);
             youtubeRepository.save(entity);
