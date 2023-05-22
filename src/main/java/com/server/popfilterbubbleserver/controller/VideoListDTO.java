@@ -14,4 +14,7 @@ public class VideoListDTO {
     private String publishedAt;
     private String channelId;
     private String channelTitle;
+    private Integer viewCount;
+    //todo gif
+    //todo link
 }
