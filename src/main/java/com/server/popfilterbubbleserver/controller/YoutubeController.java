@@ -12,16 +12,15 @@ import java.io.IOException;
 @RequestMapping("/api/youtube")
 @CrossOrigin(origins = "*")
 public class YoutubeController {
-
     private final YoutubeService youtubeService;
 
     @GetMapping("/politics")
-    public PoliticsDTO getPolitics(@RequestParam String[] channelId) throws IOException {
-        return youtubeService.getPoliticsDto(channelId);
-    }
-
-    @GetMapping("/recommends")
-    public List<VideoListDTO> getRecommends(@RequestParam String[] channelId) throws IOException {
-        return youtubeService.getVideoListDto(channelId);
+    public TotalDTO getPolitics(@RequestParam String[] channelId) throws IOException {
+        PoliticsDTO politicsDTO = youtubeService.getPoliticsDto(channelId);
+        List<VideoListDTO> videoListDTOS = youtubeService.getVideoListDto(channelId);
+        return TotalDTO.builder()
+                .politicsDTO(politicsDTO)
+                .videoListDTO(videoListDTOS)
+                .build();
     }
 }
