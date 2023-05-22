@@ -391,7 +391,7 @@ public class YoutubeService {
             String videoId = videoItem.getId();
             String title = videoItem.getSnippet().getTitle();
             String description = videoItem.getSnippet().getDescription();
-//            String thumbnailUrl = videoItem.getSnippet();
+            String thumbnailUrl = videoItem.getSnippet().getThumbnails().getDefaultThumbnail().getUrl();
             String publishedAt = videoItem.getSnippet().getPublishedAt();
             String channelTitle = videoItem.getSnippet().getChannelTitle();
             String id = videoItem.getSnippet().getChannelId();
@@ -401,11 +401,12 @@ public class YoutubeService {
                     .videoId(videoId)
                     .title(title)
                     .description(description)
-//                    .thumbnailUrl(thumbnailUrl)
+                    .thumbnailUrl(thumbnailUrl)
                     .publishedAt(publishedAt)
                     .channelId(id)
                     .channelTitle(channelTitle)
                     .viewCount(viewCount)
+                    .url("https://www.youtube.com/watch?v=" + videoId)
                     .build();
 
             videoList.add(videoDto);

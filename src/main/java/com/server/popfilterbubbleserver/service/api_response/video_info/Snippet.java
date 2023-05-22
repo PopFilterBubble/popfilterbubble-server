@@ -1,5 +1,6 @@
 package com.server.popfilterbubbleserver.service.api_response.video_info;
 
+import com.server.popfilterbubbleserver.service.api_response.video.Thumbnails;
 import lombok.Getter;
 
 @Getter
@@ -12,4 +13,5 @@ public class Snippet {
     private String[] tags;
     private String categoryId;
     private Localized localized;
+    private Thumbnails thumbnails;
 }
