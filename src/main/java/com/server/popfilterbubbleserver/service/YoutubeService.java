@@ -356,7 +356,7 @@ public class YoutubeService {
             return getVideoListDtoByTopicId(conservativeCount - progressiveCount, PROGRESSIVE);
         else if(progressiveCount > conservativeCount)
             return getVideoListDtoByTopicId(progressiveCount - conservativeCount, CONSERVATIVE);
-        return null;
+        return new ArrayList<>();
     }
 
     private List<VideoListDTO> getVideoListDtoByTopicId(int diff, int topicId) {
