@@ -1,6 +1,7 @@
 package com.server.popfilterbubbleserver.service;
 
 import com.server.popfilterbubbleserver.controller.PoliticsDTO;
+import com.server.popfilterbubbleserver.controller.VideoListDTO;
 import com.server.popfilterbubbleserver.module.YoutubeChannelEntity;
 import com.server.popfilterbubbleserver.repository.YoutubeRepository;
 import com.server.popfilterbubbleserver.service.api_response.channel.*;
@@ -334,5 +335,82 @@ public class YoutubeService {
     // 비디오 개수 판단
     public Boolean checkVideoCount(Statistics statistics) {
         return Integer.parseInt(statistics.getVideoCount()) >= 100;
+    }
+
+    public List<VideoListDTO> getVideoListDto(String[] channelIds) throws IOException {
+        int conservativeCount = 0;
+        int progressiveCount = 0;
+
+        for(String channelId : channelIds) {
+            if(channelId.contains("@"))
+                channelId = convertCustomIdToChannelId(channelId);
+            ChannelApiResult channelApiResult = getChannelInfoByChannelId(channelId).getBody();
+            saveYoutubeChannelInfo(channelId, channelApiResult);
+            YoutubeChannelEntity youtubeChannelEntity = youtubeRepository.findById(channelId).get();
+            if(youtubeChannelEntity.getTopicId() == CONSERVATIVE)
+                conservativeCount++;
+            else if(youtubeChannelEntity.getTopicId() == PROGRESSIVE)
+                progressiveCount++;
+        }
+        if(conservativeCount > progressiveCount)
+            return getVideoListDtoByTopicId(conservativeCount - progressiveCount, PROGRESSIVE);
+        else if(progressiveCount > conservativeCount)
+            return getVideoListDtoByTopicId(progressiveCount - conservativeCount, CONSERVATIVE);
+        return null;
+    }
+
+    private List<VideoListDTO> getVideoListDtoByTopicId(int diff, int topicId) {
+        List<String> channelId = youtubeRepository.findTop3CustomIdByTopicIdOrderBySubscriberCountDesc(topicId);
+        List<VideoListDTO> videoList = new ArrayList<>();
+        System.out.println(diff + " " + topicId + " " + channelId);
+        List<com.server.popfilterbubbleserver.service.api_response.video_info.Items> allVideos = new ArrayList<>();
+
+        for (String id : channelId) {
+            // 각 채널의 영상 조회
+            List<ResponseEntity<VideoApiResult>> videoApiResults = getVideoInfoByChannelId(id);
+
+            for (ResponseEntity<VideoApiResult> videoApiResultResponse : videoApiResults) {
+                VideoApiResult videoApiResult = videoApiResultResponse.getBody();
+                for(com.server.popfilterbubbleserver.service.api_response.video.Items item : videoApiResult.getItems()) {
+                    ResponseEntity<VideoInfoApiResult> videoInfoApiResultResponse = getVideoDetailInfoByVideoId(item.getId().getVideoId());
+                    if(videoInfoApiResultResponse.getBody().getItems() != null && videoInfoApiResultResponse.getBody().getItems().length != 0)
+                        allVideos.add(videoInfoApiResultResponse.getBody().getItems()[0]);
+                }
+            }
+        }
+
+        // todo 영상 정보를 최신순으로 정렬
+        allVideos.sort(Comparator.comparing(item -> item.getSnippet().getPublishedAt()));
+
+        // diff 수만큼 영상을 VideoListDTO에 추가
+        for (int i = 0; i < diff; i++) {
+            if (i >= allVideos.size()) break;
+            com.server.popfilterbubbleserver.service.api_response.video_info.Items videoItem = allVideos.get(i);
+
+            // VideoListDTO에 정보 추가
+            String videoId = videoItem.getId();
+            String title = videoItem.getSnippet().getTitle();
+            String description = videoItem.getSnippet().getDescription();
+            String thumbnailUrl = videoItem.getSnippet().getThumbnails().getDefaultThumbnail().getUrl();
+            String publishedAt = videoItem.getSnippet().getPublishedAt();
+            String channelTitle = videoItem.getSnippet().getChannelTitle();
+            String id = videoItem.getSnippet().getChannelId();
+            Integer viewCount = Integer.parseInt(videoItem.getStatistics().getViewCount());
+
+            VideoListDTO videoDto = VideoListDTO.builder()
+                    .videoId(videoId)
+                    .title(title)
+                    .description(description)
+                    .thumbnailUrl(thumbnailUrl)
+                    .publishedAt(publishedAt)
+                    .channelId(id)
+                    .channelTitle(channelTitle)
+                    .viewCount(viewCount)
+                    .url("https://www.youtube.com/watch?v=" + videoId)
+                    .build();
+
+            videoList.add(videoDto);
+        }
+        return videoList;
     }
 }
