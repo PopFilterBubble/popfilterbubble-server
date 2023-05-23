@@ -1,5 +1,6 @@
 package com.server.popfilterbubbleserver.controller;
 
+import java.math.BigInteger;
 import lombok.Builder;
 import lombok.Getter;
 
@@ -14,6 +15,6 @@ public class VideoListDTO {
     private String publishedAt;
     private String channelId;
     private String channelTitle;
-    private Integer viewCount;
+    private BigInteger viewCount;
     private String url;
 }

@@ -9,6 +9,7 @@ import com.server.popfilterbubbleserver.service.api_response.video.VideoApiResul
 import com.server.popfilterbubbleserver.service.api_response.video_comment.VideoCommentApiResult;
 import com.server.popfilterbubbleserver.service.api_response.video_info.VideoInfoApiResult;
 import com.server.popfilterbubbleserver.util.ErrorMessages;
+import java.math.BigInteger;
 import kr.co.shineware.nlp.komoran.constant.DEFAULT_MODEL;
 import kr.co.shineware.nlp.komoran.core.Komoran;
 import kr.co.shineware.nlp.komoran.model.KomoranResult;
@@ -184,15 +185,18 @@ public class YoutubeService {
                 channelId = convertCustomIdToChannelId(channelId);
             ChannelApiResult channelApiResult = getChannelInfoByChannelId(channelId).getBody();
             saveYoutubeChannelInfo(channelId, channelApiResult);
-            YoutubeChannelEntity youtubeChannelEntity = youtubeRepository.findById(channelId).get();
-            if(youtubeChannelEntity.getTopicId() == CONSERVATIVE)
-                conservativeCount++;
-            else if(youtubeChannelEntity.getTopicId() == PROGRESSIVE)
-                progressiveCount++;
-            else if(youtubeChannelEntity.getTopicId() == UNCLASSIFIED)
-                unclassifiedCount++;
-            else if(youtubeChannelEntity.getTopicId() == ETC)
-                etcCount++;
+            YoutubeChannelEntity youtubeChannelEntity = youtubeRepository.findById(channelId).orElse(null);
+            if(youtubeChannelEntity != null) {
+                if(youtubeChannelEntity.getTopicId() == CONSERVATIVE)
+                    conservativeCount++;
+                else if(youtubeChannelEntity.getTopicId() == PROGRESSIVE)
+                    progressiveCount++;
+                else if(youtubeChannelEntity.getTopicId() == UNCLASSIFIED)
+                    unclassifiedCount++;
+                else if(youtubeChannelEntity.getTopicId() == ETC)
+                    etcCount++;
+            }
+            else throw new NoSuchElementException("YoutubeChannelEntity not found. \tchannelId: " + channelId);
         }
         return PoliticsDTO.builder()
             .conservative(conservativeCount)
@@ -334,7 +338,7 @@ public class YoutubeService {
 
     // 비디오 개수 판단
     public Boolean checkVideoCount(Statistics statistics) {
-        return Integer.parseInt(statistics.getVideoCount()) >= 100;
+        return statistics.getVideoCount() >= 100;
     }
 
     public List<VideoListDTO> getVideoListDto(String[] channelIds) throws IOException {
@@ -395,7 +399,7 @@ public class YoutubeService {
             String publishedAt = videoItem.getSnippet().getPublishedAt();
             String channelTitle = videoItem.getSnippet().getChannelTitle();
             String id = videoItem.getSnippet().getChannelId();
-            Integer viewCount = Integer.parseInt(videoItem.getStatistics().getViewCount());
+            BigInteger viewCount = videoItem.getStatistics().getViewCount();
 
             VideoListDTO videoDto = VideoListDTO.builder()
                     .videoId(videoId)

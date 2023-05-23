@@ -32,10 +32,10 @@ public class YoutubeChannelEntity {
     private String customId;
 
     @Column(name = "subscriber_count")
-    private String subscriberCount;
+    private Integer subscriberCount;
 
     @Column(name = "video_count")
-    private String videoCount;
+    private Integer videoCount;
 
     @Column(name = "topic_id")
     private Integer topicId;
