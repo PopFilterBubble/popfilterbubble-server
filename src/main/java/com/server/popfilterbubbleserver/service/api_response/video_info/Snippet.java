@@ -2,8 +2,10 @@ package com.server.popfilterbubbleserver.service.api_response.video_info;
 
 import com.server.popfilterbubbleserver.service.api_response.video.Thumbnails;
 import lombok.Getter;
+import lombok.ToString;
 
 @Getter
+@ToString
 public class Snippet {
     private String publishedAt;
     private String channelId;

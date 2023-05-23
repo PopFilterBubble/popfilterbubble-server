@@ -377,14 +377,26 @@ public class YoutubeService {
                 VideoApiResult videoApiResult = videoApiResultResponse.getBody();
                 for(com.server.popfilterbubbleserver.service.api_response.video.Items item : videoApiResult.getItems()) {
                     ResponseEntity<VideoInfoApiResult> videoInfoApiResultResponse = getVideoDetailInfoByVideoId(item.getId().getVideoId());
-                    if(videoInfoApiResultResponse.getBody().getItems() != null && videoInfoApiResultResponse.getBody().getItems().length != 0)
+                    if (videoInfoApiResultResponse != null && videoInfoApiResultResponse.getBody() != null
+                            && videoInfoApiResultResponse.getBody().getItems() != null
+                            && videoInfoApiResultResponse.getBody().getItems().length > 0) {
                         allVideos.add(videoInfoApiResultResponse.getBody().getItems()[0]);
+                    }
                 }
             }
         }
 
-        // todo 영상 정보를 최신순으로 정렬
-        allVideos.sort(Comparator.comparing(item -> item.getSnippet().getPublishedAt()));
+        // allVideos를 publishedAt 최신순으로 정렬
+        allVideos.sort((o1, o2) -> {
+            String publishedAt1 = o1.getSnippet().getPublishedAt();
+            String publishedAt2 = o2.getSnippet().getPublishedAt();
+            return publishedAt2.compareTo(publishedAt1);
+        });
+
+        //allVideos 돌면서 출력
+        for (com.server.popfilterbubbleserver.service.api_response.video_info.Items item : allVideos) {
+            System.out.println(item.getSnippet().getChannelId() + " " +item.getSnippet().getPublishedAt());
+        }
 
         // diff 수만큼 영상을 VideoListDTO에 추가
         for (int i = 0; i < diff; i++) {
