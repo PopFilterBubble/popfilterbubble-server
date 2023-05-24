@@ -353,11 +353,14 @@ public class YoutubeService {
                 channelId = convertCustomIdToChannelId(channelId);
             ChannelApiResult channelApiResult = getChannelInfoByChannelId(channelId).getBody();
             saveYoutubeChannelInfo(channelId, channelApiResult);
-            YoutubeChannelEntity youtubeChannelEntity = youtubeRepository.findById(channelId).get();
-            if(youtubeChannelEntity.getTopicId() == CONSERVATIVE)
-                conservativeCount++;
-            else if(youtubeChannelEntity.getTopicId() == PROGRESSIVE)
-                progressiveCount++;
+            YoutubeChannelEntity youtubeChannelEntity = youtubeRepository.findById(channelId).orElse(null);
+            if(youtubeChannelEntity != null) {
+                if(youtubeChannelEntity.getTopicId() == CONSERVATIVE)
+                    conservativeCount++;
+                else if(youtubeChannelEntity.getTopicId() == PROGRESSIVE)
+                    progressiveCount++;
+            }
+            else throw new NoSuchElementException("YoutubeChannelEntity not found. \tchannelId: " + channelId);
         }
         if(conservativeCount > progressiveCount)
             return getVideoListDtoByTopicId(conservativeCount - progressiveCount, PROGRESSIVE);
