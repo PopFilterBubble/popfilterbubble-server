@@ -330,8 +330,11 @@ public class YoutubeService {
 
     // 정치 카테고리 판단
     public Boolean isPolitic(TopicDetails topicDetails) {
-        for (String category : topicDetails.getTopicCategories()) {
-            if (category.contains("Politics")) return true;
+        if (topicDetails != null && topicDetails.getTopicCategories() != null) {
+            for (String category : topicDetails.getTopicCategories()) {
+                if (category.contains("Politics"))
+                    return true;
+            }
         }
         return false;
     }
