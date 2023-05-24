@@ -1,11 +1,12 @@
 package com.server.popfilterbubbleserver.service.api_response.video_info;
 
+import java.math.BigInteger;
 import lombok.Getter;
 
 @Getter
 public class Statistics {
-    private String viewCount;
-    private String likeCount;
-    private String favoriteCount;
-    private String commentCount;
+    private BigInteger viewCount;
+    private Integer likeCount;
+    private Integer favoriteCount;
+    private Integer commentCount;
 }
