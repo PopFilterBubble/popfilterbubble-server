@@ -413,7 +413,7 @@ public class YoutubeService {
             String videoId = videoItem.getId();
             String title = videoItem.getSnippet().getTitle();
             String description = videoItem.getSnippet().getDescription();
-            String thumbnailUrl = videoItem.getSnippet().getThumbnails().getDefaultThumbnail().getUrl();
+            String thumbnailUrl = videoItem.getSnippet().getThumbnails().getHigh().getUrl();
             String publishedAt = videoItem.getSnippet().getPublishedAt();
             String channelTitle = videoItem.getSnippet().getChannelTitle();
             String id = videoItem.getSnippet().getChannelId();
