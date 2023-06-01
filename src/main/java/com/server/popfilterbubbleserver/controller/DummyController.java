@@ -19,6 +19,7 @@ public class DummyController {
                 .progressive(2)
                 .unclassified(3)
                 .etc(4)
+                .error(5)
                 .build();
         VideoListDTO videoListDTO = VideoListDTO.builder()
                 .videoId("QnKLXUHjIHo")

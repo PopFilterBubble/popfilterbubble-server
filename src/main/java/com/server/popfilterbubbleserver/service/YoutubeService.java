@@ -42,6 +42,7 @@ public class YoutubeService {
     private final int PROGRESSIVE = 1;
     private final int UNCLASSIFIED = 2;
     private final int ETC = 3;
+    private final int ERROR = 4;
 
     private final SentiWord_infoDTO sentiWordInfoDTO;
     private final PoliticResultDTO politicResultDTO;
@@ -180,12 +181,18 @@ public class YoutubeService {
         int progressiveCount = 0;
         int unclassifiedCount = 0;
         int etcCount = 0;
+        int errorCount = 0;
+        String id = "";
         for(String channelId : channelIds) {
-            if(channelId.contains("@"))
-                channelId = convertCustomIdToChannelId(channelId);
-            ChannelApiResult channelApiResult = getChannelInfoByChannelId(channelId).getBody();
-            saveYoutubeChannelInfo(channelId, channelApiResult);
-            YoutubeChannelEntity youtubeChannelEntity = youtubeRepository.findById(channelId).orElse(null);
+            if(channelId.contains("@")) id = convertCustomIdToChannelId(channelId);
+            if(id.equals("")) {
+                System.out.println("Error: CHANNEL_ID_NOT_FOUND - customId: " + channelId);
+                errorCount++;
+                continue;
+            }
+            ChannelApiResult channelApiResult = getChannelInfoByChannelId(id).getBody();
+            saveYoutubeChannelInfo(id, channelApiResult);
+            YoutubeChannelEntity youtubeChannelEntity = youtubeRepository.findById(id).orElse(null);
             if(youtubeChannelEntity != null) {
                 if(youtubeChannelEntity.getTopicId() == CONSERVATIVE)
                     conservativeCount++;
@@ -199,19 +206,20 @@ public class YoutubeService {
             else throw new NoSuchElementException("YoutubeChannelEntity not found. \tchannelId: " + channelId);
         }
         return PoliticsDTO.builder()
-            .conservative(conservativeCount)
-            .progressive(progressiveCount)
-            .unclassified(unclassifiedCount)
-            .etc(etcCount)
-            .build();
+                .conservative(conservativeCount)
+                .progressive(progressiveCount)
+                .unclassified(unclassifiedCount)
+                .etc(etcCount)
+                .error(errorCount)
+                .build();
     }
 
     public String convertCustomIdToChannelId(String customId) throws IOException {
         String url = "https://www.youtube.com/" + customId;
-        return extractChannelIdFromHtml(url);
+        return extractChannelIdFromHtml(url, customId);
     }
 
-    public String extractChannelIdFromHtml(String url) throws IOException {
+    public String extractChannelIdFromHtml(String url, String customId) throws IOException {
         int retries = 5;
         int waitTime = 1000;
 
@@ -230,8 +238,7 @@ public class YoutubeService {
                 }
             }
         }
-
-        throw new IOException(ErrorMessages.CHANNEL_ID_NOT_FOUND);
+        return "";
     }
 
 
@@ -347,13 +354,14 @@ public class YoutubeService {
     public List<VideoListDTO> getVideoListDto(String[] channelIds) throws IOException {
         int conservativeCount = 0;
         int progressiveCount = 0;
+        String id = "";
 
         for(String channelId : channelIds) {
-            if(channelId.contains("@"))
-                channelId = convertCustomIdToChannelId(channelId);
-            ChannelApiResult channelApiResult = getChannelInfoByChannelId(channelId).getBody();
-            saveYoutubeChannelInfo(channelId, channelApiResult);
-            YoutubeChannelEntity youtubeChannelEntity = youtubeRepository.findById(channelId).orElse(null);
+            if(channelId.contains("@")) id = convertCustomIdToChannelId(channelId);
+            if(id.equals("")) continue;
+            ChannelApiResult channelApiResult = getChannelInfoByChannelId(id).getBody();
+            saveYoutubeChannelInfo(id, channelApiResult);
+            YoutubeChannelEntity youtubeChannelEntity = youtubeRepository.findById(id).orElse(null);
             if(youtubeChannelEntity != null) {
                 if(youtubeChannelEntity.getTopicId() == CONSERVATIVE)
                     conservativeCount++;
@@ -398,11 +406,6 @@ public class YoutubeService {
             String publishedAt2 = o2.getSnippet().getPublishedAt();
             return publishedAt2.compareTo(publishedAt1);
         });
-
-        //allVideos 돌면서 출력
-        for (com.server.popfilterbubbleserver.service.api_response.video_info.Items item : allVideos) {
-            System.out.println(item.getSnippet().getChannelId() + " " +item.getSnippet().getPublishedAt());
-        }
 
         // diff 수만큼 영상을 VideoListDTO에 추가
         for (int i = 0; i < diff; i++) {
