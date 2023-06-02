@@ -74,6 +74,7 @@ public class YoutubeService implements ApplicationRunner {
 
     @Override
     public void run(ApplicationArguments args) throws Exception {
+        getApiKey();
         setVideoList();
     }
     @Scheduled(cron = "0 0 0 * * *")
