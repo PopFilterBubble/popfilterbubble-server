@@ -381,10 +381,16 @@ public class YoutubeService {
             else throw new NoSuchElementException("YoutubeChannelEntity not found. \tchannelId: " + channelId);
         }
         if(conservativeCount > progressiveCount)
-            return getVideoListDtoByTopicId(conservativeCount - progressiveCount, PROGRESSIVE);
+            return getVideoList(conservativeCount - progressiveCount, PROGRESSIVE);
         else if(progressiveCount > conservativeCount)
-            return getVideoListDtoByTopicId(progressiveCount - conservativeCount, CONSERVATIVE);
+            return getVideoList(progressiveCount - conservativeCount, CONSERVATIVE);
         return new ArrayList<>();
+    }
+
+    private List<VideoListDTO> getVideoList(int diff, int topicId){
+        if(diff == 0) return new ArrayList<>();
+        if(topicId == CONSERVATIVE) return conservativeVideoList.subList(0, diff);
+        else return progressiveVideoList.subList(0, diff);
     }
 
     private List<VideoListDTO> getVideoListDtoByTopicId(int diff, int topicId) {
