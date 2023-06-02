@@ -24,6 +24,7 @@ import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpMethod;
 import org.springframework.http.ResponseEntity;
+import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestTemplate;
 
@@ -44,11 +45,20 @@ public class YoutubeService {
     private final int ETC = 3;
     private final int ERROR = 4;
 
+    private static List<VideoListDTO> conservativeVideoList = new ArrayList<>();
+    private static List<VideoListDTO> progressiveVideoList = new ArrayList<>();
+
     private final SentiWord_infoDTO sentiWordInfoDTO;
     private final PoliticResultDTO politicResultDTO;
 
     @Value("${youtube_api_key}")
     private String youtube_api_key;
+
+    @Scheduled(cron = "0 0 0 * * *")
+    public void setVideoList(){
+        conservativeVideoList = getVideoListDtoByTopicId(100, CONSERVATIVE);
+        progressiveVideoList = getVideoListDtoByTopicId(100, PROGRESSIVE);
+    }
 
     public HttpEntity<String> setHeaders() {
         HttpHeaders headers = new HttpHeaders();
