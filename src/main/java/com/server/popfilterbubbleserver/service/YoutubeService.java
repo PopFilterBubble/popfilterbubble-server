@@ -8,8 +8,6 @@ import com.server.popfilterbubbleserver.service.api_response.channel.*;
 import com.server.popfilterbubbleserver.service.api_response.video.VideoApiResult;
 import com.server.popfilterbubbleserver.service.api_response.video_comment.VideoCommentApiResult;
 import com.server.popfilterbubbleserver.service.api_response.video_info.VideoInfoApiResult;
-import com.server.popfilterbubbleserver.util.ErrorMessages;
-import java.math.BigInteger;
 import kr.co.shineware.nlp.komoran.constant.DEFAULT_MODEL;
 import kr.co.shineware.nlp.komoran.core.Komoran;
 import kr.co.shineware.nlp.komoran.model.KomoranResult;
@@ -20,6 +18,8 @@ import org.jsoup.Jsoup;
 import org.jsoup.nodes.Document;
 import org.jsoup.nodes.Element;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.boot.ApplicationArguments;
+import org.springframework.boot.ApplicationRunner;
 import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpMethod;
@@ -29,13 +29,14 @@ import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestTemplate;
 
 import java.io.IOException;
+import java.math.BigInteger;
 import java.util.*;
 import java.util.stream.Collectors;
 
 @Service
 @Slf4j
 @RequiredArgsConstructor
-public class YoutubeService {
+public class YoutubeService implements ApplicationRunner {
 
     private final YoutubeRepository youtubeRepository;
 
@@ -54,6 +55,10 @@ public class YoutubeService {
     @Value("${youtube_api_key}")
     private String youtube_api_key;
 
+    @Override
+    public void run(ApplicationArguments args) throws Exception {
+        setVideoList();
+    }
     @Scheduled(cron = "0 0 0 * * *")
     public void setVideoList(){
         conservativeVideoList = getVideoListDtoByTopicId(100, CONSERVATIVE);
