@@ -8,7 +8,6 @@ import com.server.popfilterbubbleserver.service.api_response.channel.*;
 import com.server.popfilterbubbleserver.service.api_response.video.VideoApiResult;
 import com.server.popfilterbubbleserver.service.api_response.video_comment.VideoCommentApiResult;
 import com.server.popfilterbubbleserver.service.api_response.video_info.VideoInfoApiResult;
-import com.server.popfilterbubbleserver.util.ErrorMessages;
 import java.math.BigInteger;
 import kr.co.shineware.nlp.komoran.constant.DEFAULT_MODEL;
 import kr.co.shineware.nlp.komoran.core.Komoran;
@@ -47,8 +46,23 @@ public class YoutubeService {
     private final SentiWord_infoDTO sentiWordInfoDTO;
     private final PoliticResultDTO politicResultDTO;
 
-    @Value("${youtube_api_key}")
+    @Value("${youtube_api_key_1}")
+    private String youtubeApiKey1;
+
+    @Value("${youtube_api_key_2}")
+    private String youtubeApiKey2;
+
+    @Value("${youtube_api_key_3}")
+    private String youtubeApiKey3;
+
+    @Value("${youtube_api_key_4}")
+    private String youtubeApiKey4;
+
+    @Value("${youtube_api_key_5}")
+    private String youtubeApiKey5;
+
     private String youtube_api_key;
+    private int count = 0;
 
     public HttpEntity<String> setHeaders() {
         HttpHeaders headers = new HttpHeaders();
@@ -107,6 +121,8 @@ public class YoutubeService {
         RestTemplate restTemplate = new RestTemplate();
         ResponseEntity<?> response = null;
 
+        getApiKey();
+
         for (int i = 0; i < 10; i++) {
             try {
                 response = restTemplate.exchange(url, HttpMethod.GET, setHeaders(), classType.getClass());
@@ -121,6 +137,29 @@ public class YoutubeService {
             }
         }
         return null;
+    }
+
+    // round-robin 방식으로 api key 가져오기
+    public void getApiKey() {
+        switch (count % 5 + 1) {
+            case 1:
+                youtube_api_key = youtubeApiKey1;
+                break;
+            case 2:
+                youtube_api_key = youtubeApiKey2;
+                break;
+            case 3:
+                youtube_api_key = youtubeApiKey3;
+                break;
+            case 4:
+                youtube_api_key = youtubeApiKey4;
+                break;
+            case 5:
+                youtube_api_key = youtubeApiKey5;
+                break;
+        }
+        count++;
+        System.out.println("key : " + youtube_api_key);
     }
 
     public ResponseEntity<ChannelApiResult> getChannelInfoByChannelId(String channelID) {
