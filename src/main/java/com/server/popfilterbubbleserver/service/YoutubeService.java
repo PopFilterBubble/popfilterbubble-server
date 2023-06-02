@@ -8,8 +8,6 @@ import com.server.popfilterbubbleserver.service.api_response.channel.*;
 import com.server.popfilterbubbleserver.service.api_response.video.VideoApiResult;
 import com.server.popfilterbubbleserver.service.api_response.video_comment.VideoCommentApiResult;
 import com.server.popfilterbubbleserver.service.api_response.video_info.VideoInfoApiResult;
-import com.server.popfilterbubbleserver.util.ErrorMessages;
-import java.math.BigInteger;
 import kr.co.shineware.nlp.komoran.constant.DEFAULT_MODEL;
 import kr.co.shineware.nlp.komoran.core.Komoran;
 import kr.co.shineware.nlp.komoran.model.KomoranResult;
@@ -20,21 +18,25 @@ import org.jsoup.Jsoup;
 import org.jsoup.nodes.Document;
 import org.jsoup.nodes.Element;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.boot.ApplicationArguments;
+import org.springframework.boot.ApplicationRunner;
 import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpMethod;
 import org.springframework.http.ResponseEntity;
+import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestTemplate;
 
 import java.io.IOException;
+import java.math.BigInteger;
 import java.util.*;
 import java.util.stream.Collectors;
 
 @Service
 @Slf4j
 @RequiredArgsConstructor
-public class YoutubeService {
+public class YoutubeService implements ApplicationRunner {
 
     private final YoutubeRepository youtubeRepository;
 
@@ -44,11 +46,24 @@ public class YoutubeService {
     private final int ETC = 3;
     private final int ERROR = 4;
 
+    private static List<VideoListDTO> conservativeVideoList = new ArrayList<>();
+    private static List<VideoListDTO> progressiveVideoList = new ArrayList<>();
+
     private final SentiWord_infoDTO sentiWordInfoDTO;
     private final PoliticResultDTO politicResultDTO;
 
     @Value("${youtube_api_key}")
     private String youtube_api_key;
+
+    @Override
+    public void run(ApplicationArguments args) throws Exception {
+        setVideoList();
+    }
+    @Scheduled(cron = "0 0 0 * * *")
+    public void setVideoList(){
+        conservativeVideoList = getVideoListDtoByTopicId(100, CONSERVATIVE);
+        progressiveVideoList = getVideoListDtoByTopicId(100, PROGRESSIVE);
+    }
 
     public HttpEntity<String> setHeaders() {
         HttpHeaders headers = new HttpHeaders();
@@ -371,10 +386,16 @@ public class YoutubeService {
             else throw new NoSuchElementException("YoutubeChannelEntity not found. \tchannelId: " + channelId);
         }
         if(conservativeCount > progressiveCount)
-            return getVideoListDtoByTopicId(conservativeCount - progressiveCount, PROGRESSIVE);
+            return getVideoList(conservativeCount - progressiveCount, PROGRESSIVE);
         else if(progressiveCount > conservativeCount)
-            return getVideoListDtoByTopicId(progressiveCount - conservativeCount, CONSERVATIVE);
+            return getVideoList(progressiveCount - conservativeCount, CONSERVATIVE);
         return new ArrayList<>();
+    }
+
+    private List<VideoListDTO> getVideoList(int diff, int topicId){
+        if(diff == 0) return new ArrayList<>();
+        if(topicId == CONSERVATIVE) return conservativeVideoList.subList(0, diff);
+        else return progressiveVideoList.subList(0, diff);
     }
 
     private List<VideoListDTO> getVideoListDtoByTopicId(int diff, int topicId) {
