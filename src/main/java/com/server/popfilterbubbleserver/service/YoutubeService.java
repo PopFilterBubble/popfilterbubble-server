@@ -13,6 +13,7 @@ import kr.co.shineware.nlp.komoran.core.Komoran;
 import kr.co.shineware.nlp.komoran.model.KomoranResult;
 import kr.co.shineware.nlp.komoran.model.Token;
 import lombok.RequiredArgsConstructor;
+import lombok.Synchronized;
 import lombok.extern.slf4j.Slf4j;
 import org.jsoup.Jsoup;
 import org.jsoup.nodes.Document;
@@ -61,8 +62,10 @@ public class YoutubeService implements ApplicationRunner {
     }
     @Scheduled(cron = "0 0 0 * * *")
     public void setVideoList(){
+        System.out.println("setVideoList Start");
         conservativeVideoList = getVideoListDtoByTopicId(100, CONSERVATIVE);
         progressiveVideoList = getVideoListDtoByTopicId(100, PROGRESSIVE);
+        System.out.println("setVideoList End");
     }
 
     public HttpEntity<String> setHeaders() {
@@ -230,6 +233,10 @@ public class YoutubeService implements ApplicationRunner {
     }
 
     public String convertCustomIdToChannelId(String customId) throws IOException {
+        List<YoutubeChannelEntity> youtubeChannelEntities = youtubeRepository.findAllByCustomId(customId);
+        if(youtubeChannelEntities.size() > 0)
+            return youtubeChannelEntities.get(0).getChannelId();
+
         String url = "https://www.youtube.com/" + customId;
         return extractChannelIdFromHtml(url, customId);
     }
@@ -324,6 +331,7 @@ public class YoutubeService implements ApplicationRunner {
         return videoInfos;
     }
 
+    @Synchronized
     public void saveYoutubeChannelInfo(String channelId, ChannelApiResult channelApiResult) {
         if(youtubeRepository.existsById(channelId))
             return;
@@ -393,7 +401,6 @@ public class YoutubeService implements ApplicationRunner {
     }
 
     private List<VideoListDTO> getVideoList(int diff, int topicId){
-        if(diff == 0) return new ArrayList<>();
         if(topicId == CONSERVATIVE) return conservativeVideoList.subList(0, diff);
         else return progressiveVideoList.subList(0, diff);
     }
