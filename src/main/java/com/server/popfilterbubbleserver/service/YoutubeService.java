@@ -146,9 +146,11 @@ public class YoutubeService implements ApplicationRunner {
 
         for (int i = 0; i < 10; i++) {
             try {
-                response = restTemplate.exchange(url, HttpMethod.GET, setHeaders(), classType.getClass());
+                String newUrl = url + "&key=" + youtube_api_key;
+                response = restTemplate.exchange(newUrl, HttpMethod.GET, setHeaders(), classType.getClass());
                 return response;
             } catch (Exception e) {
+                getApiKey();
                 log.error(i + "번 url : " + url + " error : " + e.getMessage());
                 try {
                     Thread.sleep(1000);
@@ -187,7 +189,7 @@ public class YoutubeService implements ApplicationRunner {
         String url = "https://youtube.googleapis.com/youtube/v3/channels";
         url += "?part=snippet,statistics,topicDetails";
         url += "&id=" + channelID;
-        url += "&key=" + youtube_api_key;
+
 
         return (ResponseEntity<ChannelApiResult>) getResponse(url, new ChannelApiResult());
     }
@@ -198,7 +200,7 @@ public class YoutubeService implements ApplicationRunner {
         url += "&channelId=" + channelID;
         url += "&maxResults=50";
         url += "&order=date";
-        url += "&key=" + youtube_api_key;
+
 
         ResponseEntity<VideoApiResult> videoApiResult = (ResponseEntity<VideoApiResult>) getResponse(url, new VideoApiResult());
         if (videoApiResult == null) {
@@ -220,7 +222,7 @@ public class YoutubeService implements ApplicationRunner {
         String url = "https://youtube.googleapis.com/youtube/v3/videos";
         url += "?part=snippet,statistics,topicDetails";
         url += "&id=" + videoId;
-        url += "&key=" + youtube_api_key;
+
 
         return (ResponseEntity<VideoInfoApiResult>) getResponse(url, new VideoInfoApiResult());
     }
@@ -231,7 +233,7 @@ public class YoutubeService implements ApplicationRunner {
         url += "&videoId=" + videoId;
         url += "&order=relevance";
         url += "&maxResults=100";
-        url += "&key=" + youtube_api_key;
+
 
         return (ResponseEntity<VideoCommentApiResult>) getResponse(url, new VideoCommentApiResult());
     }
