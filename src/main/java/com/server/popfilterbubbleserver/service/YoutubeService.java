@@ -149,6 +149,7 @@ public class YoutubeService implements ApplicationRunner {
                 response = restTemplate.exchange(url, HttpMethod.GET, setHeaders(), classType.getClass());
                 return response;
             } catch (Exception e) {
+                getApiKey();
                 log.error(i + "번 url : " + url + " error : " + e.getMessage());
                 try {
                     Thread.sleep(1000);
