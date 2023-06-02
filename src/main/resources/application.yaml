@@ -52,6 +52,10 @@ spring:
     show-sql: true
     database: mysql
     database-platform: org.hibernate.dialect.MySQL5InnoDBDialect
-youtube_api_key: ${youtube_api_key}
+youtube_api_key_1: ${youtube_api_key_1}
+youtube_api_key_2: ${youtube_api_key_2}
+youtube_api_key_3: ${youtube_api_key_3}
+youtube_api_key_4: ${youtube_api_key_4}
+youtube_api_key_5: ${youtube_api_key_5}
 server:
   port: '80'
