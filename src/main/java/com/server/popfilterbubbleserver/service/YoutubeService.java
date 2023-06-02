@@ -146,8 +146,8 @@ public class YoutubeService implements ApplicationRunner {
 
         for (int i = 0; i < 10; i++) {
             try {
-                url = url + "&key=" + youtube_api_key;
-                response = restTemplate.exchange(url, HttpMethod.GET, setHeaders(), classType.getClass());
+                String newUrl = url + "&key=" + youtube_api_key;
+                response = restTemplate.exchange(newUrl, HttpMethod.GET, setHeaders(), classType.getClass());
                 return response;
             } catch (Exception e) {
                 getApiKey();
