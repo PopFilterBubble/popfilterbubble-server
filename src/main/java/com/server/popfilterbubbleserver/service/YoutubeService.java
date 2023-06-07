@@ -4,11 +4,26 @@ import com.server.popfilterbubbleserver.controller.PoliticsDTO;
 import com.server.popfilterbubbleserver.controller.VideoListDTO;
 import com.server.popfilterbubbleserver.module.YoutubeChannelEntity;
 import com.server.popfilterbubbleserver.repository.YoutubeRepository;
-import com.server.popfilterbubbleserver.service.api_response.channel.*;
+import com.server.popfilterbubbleserver.service.api_response.channel.ChannelApiResult;
+import com.server.popfilterbubbleserver.service.api_response.channel.Items;
+import com.server.popfilterbubbleserver.service.api_response.channel.Snippet;
+import com.server.popfilterbubbleserver.service.api_response.channel.Statistics;
+import com.server.popfilterbubbleserver.service.api_response.channel.TopicDetails;
 import com.server.popfilterbubbleserver.service.api_response.video.VideoApiResult;
 import com.server.popfilterbubbleserver.service.api_response.video_comment.VideoCommentApiResult;
 import com.server.popfilterbubbleserver.service.api_response.video_info.VideoInfoApiResult;
+import java.io.IOException;
 import java.math.BigInteger;
+import java.util.ArrayList;
+import java.util.Comparator;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.NoSuchElementException;
+import java.util.Set;
+import java.util.stream.Collectors;
 import kr.co.shineware.nlp.komoran.constant.DEFAULT_MODEL;
 import kr.co.shineware.nlp.komoran.core.Komoran;
 import kr.co.shineware.nlp.komoran.model.KomoranResult;
@@ -30,11 +45,6 @@ import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestTemplate;
 
-import java.io.IOException;
-import java.math.BigInteger;
-import java.util.*;
-import java.util.stream.Collectors;
-
 @Service
 @Slf4j
 @RequiredArgsConstructor
@@ -46,7 +56,6 @@ public class YoutubeService implements ApplicationRunner {
     private final int PROGRESSIVE = 1;
     private final int UNCLASSIFIED = 2;
     private final int ETC = 3;
-    private final int ERROR = 4;
 
     private static List<VideoListDTO> conservativeVideoList = new ArrayList<>();
     private static List<VideoListDTO> progressiveVideoList = new ArrayList<>();
@@ -165,21 +174,11 @@ public class YoutubeService implements ApplicationRunner {
     // round-robin 방식으로 api key 가져오기
     public void getApiKey() {
         switch (count % 5 + 1) {
-            case 1:
-                youtube_api_key = youtubeApiKey1;
-                break;
-            case 2:
-                youtube_api_key = youtubeApiKey2;
-                break;
-            case 3:
-                youtube_api_key = youtubeApiKey3;
-                break;
-            case 4:
-                youtube_api_key = youtubeApiKey4;
-                break;
-            case 5:
-                youtube_api_key = youtubeApiKey5;
-                break;
+            case 1 -> youtube_api_key = youtubeApiKey1;
+            case 2 -> youtube_api_key = youtubeApiKey2;
+            case 3 -> youtube_api_key = youtubeApiKey3;
+            case 4 -> youtube_api_key = youtubeApiKey4;
+            case 5 -> youtube_api_key = youtubeApiKey5;
         }
         count++;
         System.out.println("key : " + youtube_api_key);
@@ -243,13 +242,12 @@ public class YoutubeService implements ApplicationRunner {
         int progressiveCount = 0;
         int unclassifiedCount = 0;
         int etcCount = 0;
-        int errorCount = 0;
         String id = "";
         for(String channelId : channelIds) {
             if(channelId.contains("@")) id = convertCustomIdToChannelId(channelId);
             if(id.equals("")) {
                 System.out.println("Error: CHANNEL_ID_NOT_FOUND - customId: " + channelId);
-                errorCount++;
+                etcCount++;
                 continue;
             }
             ChannelApiResult channelApiResult = getChannelInfoByChannelId(id).getBody();
@@ -272,7 +270,6 @@ public class YoutubeService implements ApplicationRunner {
                 .progressive(progressiveCount)
                 .unclassified(unclassifiedCount)
                 .etc(etcCount)
-                .error(errorCount)
                 .build();
     }
 

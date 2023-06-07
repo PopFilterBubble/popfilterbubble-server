@@ -1,18 +1,13 @@
 package com.server.popfilterbubbleserver.module;
 
 
-import com.server.popfilterbubbleserver.service.api_response.channel.Items;
 import com.server.popfilterbubbleserver.service.api_response.channel.Snippet;
 import com.server.popfilterbubbleserver.service.api_response.channel.Statistics;
-import com.server.popfilterbubbleserver.service.api_response.channel.TopicDetails;
-import lombok.Getter;
-import lombok.NoArgsConstructor;
-
 import javax.persistence.Column;
 import javax.persistence.Entity;
 import javax.persistence.Id;
 import javax.persistence.Table;
-import lombok.Setter;
+import lombok.Getter;
 
 @Entity
 @Getter
