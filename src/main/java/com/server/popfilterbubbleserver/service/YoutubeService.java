@@ -447,7 +447,7 @@ public class YoutubeService implements ApplicationRunner {
     }
 
     private List<VideoListDTO> getVideoListDtoByTopicId(int diff, int topicId) {
-        List<String> channelId = youtubeRepository.findTop3CustomIdByTopicIdOrderBySubscriberCountDesc(topicId);
+        List<String> channelId = youtubeRepository.findTop3IdByTopicIdOrderBySubscriberCountDesc(topicId);
         List<VideoListDTO> videoList = new ArrayList<>();
         System.out.println(diff + " " + topicId + " " + channelId);
         List<com.server.popfilterbubbleserver.service.api_response.video_info.Items> allVideos = new ArrayList<>();
@@ -485,20 +485,25 @@ public class YoutubeService implements ApplicationRunner {
             String videoId = videoItem.getId();
             String title = videoItem.getSnippet().getTitle();
             String description = videoItem.getSnippet().getDescription();
+            String id = videoItem.getSnippet().getChannelId();
+            String channelTitle = videoItem.getSnippet().getChannelTitle();
+            YoutubeChannelEntity youtubeChannelEntity = youtubeRepository.findById(id).orElse(null);
+            assert youtubeChannelEntity != null;
+            String channelImg = youtubeChannelEntity.getChannelImg();
             String thumbnailUrl = videoItem.getSnippet().getThumbnails().getHigh().getUrl();
             String publishedAt = videoItem.getSnippet().getPublishedAt();
-            String channelTitle = videoItem.getSnippet().getChannelTitle();
-            String id = videoItem.getSnippet().getChannelId();
+
             BigInteger viewCount = videoItem.getStatistics().getViewCount();
 
             VideoListDTO videoDto = VideoListDTO.builder()
                     .videoId(videoId)
                     .title(title)
                     .description(description)
-                    .thumbnailUrl(thumbnailUrl)
-                    .publishedAt(publishedAt)
                     .channelId(id)
                     .channelTitle(channelTitle)
+                    .channelImg(channelImg)
+                    .thumbnailUrl(thumbnailUrl)
+                    .publishedAt(publishedAt)
                     .viewCount(viewCount)
                     .url("https://www.youtube.com/watch?v=" + videoId)
                     .build();

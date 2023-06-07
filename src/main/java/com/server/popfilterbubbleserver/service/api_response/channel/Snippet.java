@@ -7,5 +7,6 @@ public class Snippet {
     private String title;
     private String description;
     private String customUrl;
+    private Thumbnails thumbnails;
     private String publishedAt;
 }
