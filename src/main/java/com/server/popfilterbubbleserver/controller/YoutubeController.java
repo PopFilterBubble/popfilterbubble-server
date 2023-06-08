@@ -15,13 +15,12 @@ public class YoutubeController {
     private final YoutubeService youtubeService;
 
     @GetMapping("/politics")
-    public TotalDTO getPolitics(@RequestParam String[] channelId) throws IOException {
-        PoliticsDTO politicsDTO = youtubeService.getPoliticsDto(channelId);
-        List<VideoListDTO> videoListDTOS = youtubeService.getVideoListDto(channelId);
+    public TotalDTO getPolitics(@RequestParam String[] customId) throws IOException {
+        PoliticsDTO politicsDTO = youtubeService.getPoliticsDto(customId);
+        List<VideoListDTO> videoListDTOS = youtubeService.getRecommendedVideoList();
         return TotalDTO.builder()
                 .politicsDTO(politicsDTO)
                 .videoListDTO(videoListDTOS)
                 .build();
-
     }
 }
