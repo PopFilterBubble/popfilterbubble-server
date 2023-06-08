@@ -16,8 +16,6 @@ public class YoutubeController {
 
     @GetMapping("/politics")
     public TotalDTO getPolitics(@RequestParam String[] channelId) throws IOException {
-
-
         PoliticsDTO politicsDTO = youtubeService.getPoliticsDto(channelId);
         List<VideoListDTO> videoListDTOS = youtubeService.getVideoListDto(channelId);
         return TotalDTO.builder()

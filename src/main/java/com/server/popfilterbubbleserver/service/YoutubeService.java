@@ -374,8 +374,9 @@ public class YoutubeService implements ApplicationRunner {
 
     @Synchronized
     public void saveYoutubeChannelInfo(String channelId, ChannelApiResult channelApiResult) {
-        if(youtubeRepository.existsById(channelId))
+        if (youtubeRepository.existsById(channelId) && youtubeRepository.isChannelImgNull(channelId) != 1) {
             return;
+        }
         if (channelApiResult != null && channelApiResult.getItems() != null) {
             Items item = channelApiResult.getItems()[0];
             Snippet snippet = item.getSnippet();
@@ -448,6 +449,11 @@ public class YoutubeService implements ApplicationRunner {
 
     private List<VideoListDTO> getVideoListDtoByTopicId(int diff, int topicId) {
         List<String> channelId = youtubeRepository.findTop3IdByTopicIdOrderBySubscriberCountDesc(topicId);
+        for(String id : channelId) {
+            if(youtubeRepository.isChannelImgNull(id) != 1) continue;
+            ChannelApiResult channelApiResult = getChannelInfoByChannelId(id).getBody();
+            saveYoutubeChannelInfo(id, channelApiResult);
+        }
         List<VideoListDTO> videoList = new ArrayList<>();
         System.out.println(diff + " " + topicId + " " + channelId);
         List<com.server.popfilterbubbleserver.service.api_response.video_info.Items> allVideos = new ArrayList<>();
