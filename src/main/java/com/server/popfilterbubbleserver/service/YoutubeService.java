@@ -59,8 +59,6 @@ public class YoutubeService implements ApplicationRunner {
 
     private int conservativeCount = 0;
     private int progressiveCount = 0;
-    private int unclassifiedCount = 0;
-    private int etcCount = 0;
 
     private static List<VideoListDTO> conservativeVideoList = new ArrayList<>();
     private static List<VideoListDTO> progressiveVideoList = new ArrayList<>();
@@ -193,6 +191,11 @@ public class YoutubeService implements ApplicationRunner {
 
     // 정치 카테고리 분류, 각 카테고리 별 영상 개수 조회
     public PoliticsDTO getPoliticsDto(String[] customIds) throws IOException {
+        int conservativeCount = 0;
+        int progressiveCount = 0;
+        int unclassifiedCount = 0;
+        int etcCount = 0;
+
         for(String cid : customIds) {
             String id = getChannelId(cid);
             // 에러 발생 시 기타로 분류
@@ -218,6 +221,9 @@ public class YoutubeService implements ApplicationRunner {
             }
             else throw new NoSuchElementException("YoutubeChannelEntity not found. \tcustomId: " + cid);
         }
+        this.conservativeCount = conservativeCount;
+        this.progressiveCount = progressiveCount;
+
         return PoliticsDTO.builder()
                 .conservative(conservativeCount)
                 .progressive(progressiveCount)
