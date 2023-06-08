@@ -10,5 +10,4 @@ public class PoliticsDTO {
     private Integer progressive;
     private Integer unclassified;
     private Integer etc;
-    private Integer error;
 }

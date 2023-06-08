@@ -11,10 +11,11 @@ public class VideoListDTO {
     private String videoId;
     private String title;
     private String description;
-    private String thumbnailUrl;
-    private String publishedAt;
     private String channelId;
     private String channelTitle;
+    private String channelImg;
+    private String thumbnailUrl;
+    private String publishedAt;
     private BigInteger viewCount;
     private String url;
 }

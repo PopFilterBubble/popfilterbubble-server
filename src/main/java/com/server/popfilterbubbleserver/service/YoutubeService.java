@@ -4,11 +4,26 @@ import com.server.popfilterbubbleserver.controller.PoliticsDTO;
 import com.server.popfilterbubbleserver.controller.VideoListDTO;
 import com.server.popfilterbubbleserver.module.YoutubeChannelEntity;
 import com.server.popfilterbubbleserver.repository.YoutubeRepository;
-import com.server.popfilterbubbleserver.service.api_response.channel.*;
+import com.server.popfilterbubbleserver.service.api_response.channel.ChannelApiResult;
+import com.server.popfilterbubbleserver.service.api_response.channel.Items;
+import com.server.popfilterbubbleserver.service.api_response.channel.Snippet;
+import com.server.popfilterbubbleserver.service.api_response.channel.Statistics;
+import com.server.popfilterbubbleserver.service.api_response.channel.TopicDetails;
 import com.server.popfilterbubbleserver.service.api_response.video.VideoApiResult;
 import com.server.popfilterbubbleserver.service.api_response.video_comment.VideoCommentApiResult;
 import com.server.popfilterbubbleserver.service.api_response.video_info.VideoInfoApiResult;
+import java.io.IOException;
 import java.math.BigInteger;
+import java.util.ArrayList;
+import java.util.Comparator;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.NoSuchElementException;
+import java.util.Set;
+import java.util.stream.Collectors;
 import kr.co.shineware.nlp.komoran.constant.DEFAULT_MODEL;
 import kr.co.shineware.nlp.komoran.core.Komoran;
 import kr.co.shineware.nlp.komoran.model.KomoranResult;
@@ -30,11 +45,6 @@ import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestTemplate;
 
-import java.io.IOException;
-import java.math.BigInteger;
-import java.util.*;
-import java.util.stream.Collectors;
-
 @Service
 @Slf4j
 @RequiredArgsConstructor
@@ -46,7 +56,11 @@ public class YoutubeService implements ApplicationRunner {
     private final int PROGRESSIVE = 1;
     private final int UNCLASSIFIED = 2;
     private final int ETC = 3;
-    private final int ERROR = 4;
+
+    private int conservativeCount = 0;
+    private int progressiveCount = 0;
+    private int unclassifiedCount = 0;
+    private int etcCount = 0;
 
     private static List<VideoListDTO> conservativeVideoList = new ArrayList<>();
     private static List<VideoListDTO> progressiveVideoList = new ArrayList<>();
@@ -72,24 +86,166 @@ public class YoutubeService implements ApplicationRunner {
     private String youtube_api_key;
     private int count = 0;
 
-    @Override
-    public void run(ApplicationArguments args) throws Exception {
-        getApiKey();
-        setVideoList();
-    }
-    @Scheduled(cron = "0 0 0 * * *")
-    public void setVideoList(){
-        System.out.println("setVideoList Start");
-        conservativeVideoList = getVideoListDtoByTopicId(100, CONSERVATIVE);
-        progressiveVideoList = getVideoListDtoByTopicId(100, PROGRESSIVE);
-        System.out.println("setVideoList End");
-    }
-
     public HttpEntity<String> setHeaders() {
         HttpHeaders headers = new HttpHeaders();
         headers.set("Accept", "application/json");
         return new HttpEntity<>(headers);
     }
+
+    @Override
+    public void run(ApplicationArguments args) throws Exception {
+        getApiKey();
+        setVideoList();
+    }
+
+    // round-robin 방식으로 api key 가져오기
+    public void getApiKey() {
+        switch (count % 5 + 1) {
+            case 1 -> youtube_api_key = youtubeApiKey1;
+            case 2 -> youtube_api_key = youtubeApiKey2;
+            case 3 -> youtube_api_key = youtubeApiKey3;
+            case 4 -> youtube_api_key = youtubeApiKey4;
+            case 5 -> youtube_api_key = youtubeApiKey5;
+        }
+        count++;
+        System.out.println("key : " + youtube_api_key);
+    }
+
+    @Scheduled(cron = "0 0 0 * * *")
+    public void setVideoList(){
+        System.out.println("setVideoList Start");
+        conservativeVideoList = getVideoListDtoByTopicId(CONSERVATIVE);
+        progressiveVideoList = getVideoListDtoByTopicId(PROGRESSIVE);
+        System.out.println("setVideoList End");
+    }
+
+    private List<VideoListDTO> getVideoListDtoByTopicId(int topicId) {
+        List<VideoListDTO> videoList = new ArrayList<>();
+        List<com.server.popfilterbubbleserver.service.api_response.video_info.Items> allVideos = new ArrayList<>();
+
+        List<String> channelId = youtubeRepository.findTop3IdByTopicIdOrderBySubscriberCountDesc(topicId);
+        System.out.println("topicId: " + topicId + " TOP3 channelId: " + channelId);
+
+        for(String id : channelId) {
+            // channelImg를 나중에 추가한 이슈로 인해 null값인 경우에만 채널 정보를 다시 저장
+            if(youtubeRepository.isChannelImgNull(id) == 1) {
+                ChannelApiResult channelApiResult = getChannelInfoByChannelId(id).getBody();
+                saveYoutubeChannelInfo(id, channelApiResult);
+            }
+            // 상위 3개 채널의 영상 정보 조회
+            List<ResponseEntity<VideoApiResult>> videoApiResults = getVideoInfoByChannelId(id); // 50개 조회
+
+            for (ResponseEntity<VideoApiResult> videoApiResultResponse : videoApiResults) {
+                VideoApiResult videoApiResult = videoApiResultResponse.getBody();
+                for(com.server.popfilterbubbleserver.service.api_response.video.Items item : videoApiResult.getItems()) {
+                    ResponseEntity<VideoInfoApiResult> videoInfoApiResultResponse = getVideoDetailInfoByVideoId(item.getId().getVideoId());
+                    if (videoInfoApiResultResponse != null && videoInfoApiResultResponse.getBody() != null
+                            && videoInfoApiResultResponse.getBody().getItems() != null
+                            && videoInfoApiResultResponse.getBody().getItems().length > 0) {
+                        allVideos.add(videoInfoApiResultResponse.getBody().getItems()[0]);
+                    }
+                }
+            }
+        }
+
+        // allVideos를 publishedAt 최신순으로 정렬
+        allVideos.sort((o1, o2) -> {
+            String publishedAt1 = o1.getSnippet().getPublishedAt();
+            String publishedAt2 = o2.getSnippet().getPublishedAt();
+            return publishedAt2.compareTo(publishedAt1);
+        });
+
+        // 최대 100개의 영상을 VideoListDTO에 추가
+        for (int i = 0; i < 100; i++) {
+            if (i >= allVideos.size()) break;
+            com.server.popfilterbubbleserver.service.api_response.video_info.Items videoItem = allVideos.get(i);
+
+            // VideoListDTO에 정보 추가
+            String videoId = videoItem.getId();
+            String title = videoItem.getSnippet().getTitle();
+            String description = videoItem.getSnippet().getDescription();
+            String id = videoItem.getSnippet().getChannelId();
+            String channelTitle = videoItem.getSnippet().getChannelTitle();
+            YoutubeChannelEntity youtubeChannelEntity = youtubeRepository.findById(id).orElse(null);
+            assert youtubeChannelEntity != null;
+            String channelImg = youtubeChannelEntity.getChannelImg();
+            String thumbnailUrl = videoItem.getSnippet().getThumbnails().getHigh().getUrl();
+            String publishedAt = videoItem.getSnippet().getPublishedAt();
+            BigInteger viewCount = videoItem.getStatistics().getViewCount();
+
+            VideoListDTO videoDto = VideoListDTO.builder()
+                    .videoId(videoId)
+                    .title(title)
+                    .description(description)
+                    .channelId(id)
+                    .channelTitle(channelTitle)
+                    .channelImg(channelImg)
+                    .thumbnailUrl(thumbnailUrl)
+                    .publishedAt(publishedAt)
+                    .viewCount(viewCount)
+                    .url("https://www.youtube.com/watch?v=" + videoId)
+                    .build();
+
+            videoList.add(videoDto);
+        }
+        return videoList;
+    }
+
+    // 정치 카테고리 분류, 각 카테고리 별 영상 개수 조회
+    public PoliticsDTO getPoliticsDto(String[] customIds) throws IOException {
+        for(String cid : customIds) {
+            String id = getChannelId(cid);
+            // 에러 발생 시 기타로 분류
+            if (id.isEmpty()) {
+                System.out.println("Error: CHANNEL_ID_NOT_FOUND - customId: " + cid);
+                etcCount++;
+                continue;
+            }
+            // 채널 아이디로 채널 정보 가져와 카테고리 분류 후 DB에 저장
+            ChannelApiResult channelApiResult = getChannelInfoByChannelId(id).getBody();
+            saveYoutubeChannelInfo(id, channelApiResult);
+
+            YoutubeChannelEntity youtubeChannelEntity = youtubeRepository.findById(id).orElse(null);
+            if(youtubeChannelEntity != null) {
+                if(youtubeChannelEntity.getTopicId() == CONSERVATIVE)
+                    conservativeCount++;
+                else if(youtubeChannelEntity.getTopicId() == PROGRESSIVE)
+                    progressiveCount++;
+                else if(youtubeChannelEntity.getTopicId() == UNCLASSIFIED)
+                    unclassifiedCount++;
+                else if(youtubeChannelEntity.getTopicId() == ETC)
+                    etcCount++;
+            }
+            else throw new NoSuchElementException("YoutubeChannelEntity not found. \tcustomId: " + cid);
+        }
+        return PoliticsDTO.builder()
+                .conservative(conservativeCount)
+                .progressive(progressiveCount)
+                .unclassified(unclassifiedCount)
+                .etc(etcCount)
+                .build();
+    }
+
+    // 추천 영상 리스트 조회
+    public List<VideoListDTO> getRecommendedVideoList() throws IOException {
+        if(conservativeCount > progressiveCount)
+            return getVideoList(PROGRESSIVE, conservativeCount - progressiveCount);
+        else if(progressiveCount > conservativeCount)
+            return getVideoList(CONSERVATIVE, progressiveCount - conservativeCount);
+        return new ArrayList<>();
+    }
+
+    private List<VideoListDTO> getVideoList(int topicId, int diff){
+        if(topicId == CONSERVATIVE) return conservativeVideoList.subList(0, diff);
+        else return progressiveVideoList.subList(0, diff);
+    }
+
+    private String getChannelId(String channelId) throws IOException {
+        if (channelId.contains("@"))
+            return convertCustomIdToChannelId(channelId);
+        return "";
+    }
+
     public Integer getPoliticScore(String channelId) {
         ArrayList<String> ast = getAllInfoOfChannel(channelId);
         Map<String, Integer> m = getPolicitalScore(ast);
@@ -162,29 +318,6 @@ public class YoutubeService implements ApplicationRunner {
         return null;
     }
 
-    // round-robin 방식으로 api key 가져오기
-    public void getApiKey() {
-        switch (count % 5 + 1) {
-            case 1:
-                youtube_api_key = youtubeApiKey1;
-                break;
-            case 2:
-                youtube_api_key = youtubeApiKey2;
-                break;
-            case 3:
-                youtube_api_key = youtubeApiKey3;
-                break;
-            case 4:
-                youtube_api_key = youtubeApiKey4;
-                break;
-            case 5:
-                youtube_api_key = youtubeApiKey5;
-                break;
-        }
-        count++;
-        System.out.println("key : " + youtube_api_key);
-    }
-
     public ResponseEntity<ChannelApiResult> getChannelInfoByChannelId(String channelID) {
         String url = "https://youtube.googleapis.com/youtube/v3/channels";
         url += "?part=snippet,statistics,topicDetails";
@@ -236,44 +369,6 @@ public class YoutubeService implements ApplicationRunner {
 
 
         return (ResponseEntity<VideoCommentApiResult>) getResponse(url, new VideoCommentApiResult());
-    }
-
-    public PoliticsDTO getPoliticsDto(String[] channelIds) throws IOException {
-        int conservativeCount = 0;
-        int progressiveCount = 0;
-        int unclassifiedCount = 0;
-        int etcCount = 0;
-        int errorCount = 0;
-        String id = "";
-        for(String channelId : channelIds) {
-            if(channelId.contains("@")) id = convertCustomIdToChannelId(channelId);
-            if(id.equals("")) {
-                System.out.println("Error: CHANNEL_ID_NOT_FOUND - customId: " + channelId);
-                errorCount++;
-                continue;
-            }
-            ChannelApiResult channelApiResult = getChannelInfoByChannelId(id).getBody();
-            saveYoutubeChannelInfo(id, channelApiResult);
-            YoutubeChannelEntity youtubeChannelEntity = youtubeRepository.findById(id).orElse(null);
-            if(youtubeChannelEntity != null) {
-                if(youtubeChannelEntity.getTopicId() == CONSERVATIVE)
-                    conservativeCount++;
-                else if(youtubeChannelEntity.getTopicId() == PROGRESSIVE)
-                    progressiveCount++;
-                else if(youtubeChannelEntity.getTopicId() == UNCLASSIFIED)
-                    unclassifiedCount++;
-                else if(youtubeChannelEntity.getTopicId() == ETC)
-                    etcCount++;
-            }
-            else throw new NoSuchElementException("YoutubeChannelEntity not found. \tchannelId: " + channelId);
-        }
-        return PoliticsDTO.builder()
-                .conservative(conservativeCount)
-                .progressive(progressiveCount)
-                .unclassified(unclassifiedCount)
-                .etc(etcCount)
-                .error(errorCount)
-                .build();
     }
 
     public String convertCustomIdToChannelId(String customId) throws IOException {
@@ -377,8 +472,9 @@ public class YoutubeService implements ApplicationRunner {
 
     @Synchronized
     public void saveYoutubeChannelInfo(String channelId, ChannelApiResult channelApiResult) {
-        if(youtubeRepository.existsById(channelId))
+        if (youtubeRepository.existsById(channelId) && youtubeRepository.isChannelImgNull(channelId) != 1) {
             return;
+        }
         if (channelApiResult != null && channelApiResult.getItems() != null) {
             Items item = channelApiResult.getItems()[0];
             Snippet snippet = item.getSnippet();
@@ -416,98 +512,5 @@ public class YoutubeService implements ApplicationRunner {
     // 비디오 개수 판단
     public Boolean checkVideoCount(Statistics statistics) {
         return statistics.getVideoCount() >= 100;
-    }
-
-    public List<VideoListDTO> getVideoListDto(String[] channelIds) throws IOException {
-        int conservativeCount = 0;
-        int progressiveCount = 0;
-        String id = "";
-
-        for(String channelId : channelIds) {
-            if(channelId.contains("@")) id = convertCustomIdToChannelId(channelId);
-            if(id.equals("")) continue;
-            ChannelApiResult channelApiResult = getChannelInfoByChannelId(id).getBody();
-            saveYoutubeChannelInfo(id, channelApiResult);
-            YoutubeChannelEntity youtubeChannelEntity = youtubeRepository.findById(id).orElse(null);
-            if(youtubeChannelEntity != null) {
-                if(youtubeChannelEntity.getTopicId() == CONSERVATIVE)
-                    conservativeCount++;
-                else if(youtubeChannelEntity.getTopicId() == PROGRESSIVE)
-                    progressiveCount++;
-            }
-            else throw new NoSuchElementException("YoutubeChannelEntity not found. \tchannelId: " + channelId);
-        }
-        if(conservativeCount > progressiveCount)
-            return getVideoList(conservativeCount - progressiveCount, PROGRESSIVE);
-        else if(progressiveCount > conservativeCount)
-            return getVideoList(progressiveCount - conservativeCount, CONSERVATIVE);
-        return new ArrayList<>();
-    }
-
-    private List<VideoListDTO> getVideoList(int diff, int topicId){
-        if(topicId == CONSERVATIVE) return conservativeVideoList.subList(0, diff);
-        else return progressiveVideoList.subList(0, diff);
-    }
-
-    private List<VideoListDTO> getVideoListDtoByTopicId(int diff, int topicId) {
-        List<String> channelId = youtubeRepository.findTop3CustomIdByTopicIdOrderBySubscriberCountDesc(topicId);
-        List<VideoListDTO> videoList = new ArrayList<>();
-        System.out.println(diff + " " + topicId + " " + channelId);
-        List<com.server.popfilterbubbleserver.service.api_response.video_info.Items> allVideos = new ArrayList<>();
-
-        for (String id : channelId) {
-            // 각 채널의 영상 조회
-            List<ResponseEntity<VideoApiResult>> videoApiResults = getVideoInfoByChannelId(id);
-
-            for (ResponseEntity<VideoApiResult> videoApiResultResponse : videoApiResults) {
-                VideoApiResult videoApiResult = videoApiResultResponse.getBody();
-                for(com.server.popfilterbubbleserver.service.api_response.video.Items item : videoApiResult.getItems()) {
-                    ResponseEntity<VideoInfoApiResult> videoInfoApiResultResponse = getVideoDetailInfoByVideoId(item.getId().getVideoId());
-                    if (videoInfoApiResultResponse != null && videoInfoApiResultResponse.getBody() != null
-                            && videoInfoApiResultResponse.getBody().getItems() != null
-                            && videoInfoApiResultResponse.getBody().getItems().length > 0) {
-                        allVideos.add(videoInfoApiResultResponse.getBody().getItems()[0]);
-                    }
-                }
-            }
-        }
-
-        // allVideos를 publishedAt 최신순으로 정렬
-        allVideos.sort((o1, o2) -> {
-            String publishedAt1 = o1.getSnippet().getPublishedAt();
-            String publishedAt2 = o2.getSnippet().getPublishedAt();
-            return publishedAt2.compareTo(publishedAt1);
-        });
-
-        // diff 수만큼 영상을 VideoListDTO에 추가
-        for (int i = 0; i < diff; i++) {
-            if (i >= allVideos.size()) break;
-            com.server.popfilterbubbleserver.service.api_response.video_info.Items videoItem = allVideos.get(i);
-
-            // VideoListDTO에 정보 추가
-            String videoId = videoItem.getId();
-            String title = videoItem.getSnippet().getTitle();
-            String description = videoItem.getSnippet().getDescription();
-            String thumbnailUrl = videoItem.getSnippet().getThumbnails().getHigh().getUrl();
-            String publishedAt = videoItem.getSnippet().getPublishedAt();
-            String channelTitle = videoItem.getSnippet().getChannelTitle();
-            String id = videoItem.getSnippet().getChannelId();
-            BigInteger viewCount = videoItem.getStatistics().getViewCount();
-
-            VideoListDTO videoDto = VideoListDTO.builder()
-                    .videoId(videoId)
-                    .title(title)
-                    .description(description)
-                    .thumbnailUrl(thumbnailUrl)
-                    .publishedAt(publishedAt)
-                    .channelId(id)
-                    .channelTitle(channelTitle)
-                    .viewCount(viewCount)
-                    .url("https://www.youtube.com/watch?v=" + videoId)
-                    .build();
-
-            videoList.add(videoDto);
-        }
-        return videoList;
     }
 }
