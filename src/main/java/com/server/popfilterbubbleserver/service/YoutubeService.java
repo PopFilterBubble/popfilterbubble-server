@@ -106,7 +106,7 @@ public class YoutubeService implements ApplicationRunner {
             case 5 -> youtube_api_key = youtubeApiKey5;
         }
         count++;
-        System.out.println("key : " + youtube_api_key);
+        //System.out.println("key : " + youtube_api_key);
     }
 
     @Scheduled(cron = "0 0 0 * * *")
@@ -329,7 +329,6 @@ public class YoutubeService implements ApplicationRunner {
         url += "?part=snippet,statistics,topicDetails";
         url += "&id=" + channelID;
 
-
         return (ResponseEntity<ChannelApiResult>) getResponse(url, new ChannelApiResult());
     }
 
@@ -339,7 +338,6 @@ public class YoutubeService implements ApplicationRunner {
         url += "&channelId=" + channelID;
         url += "&maxResults=50";
         url += "&order=date";
-
 
         ResponseEntity<VideoApiResult> videoApiResult = (ResponseEntity<VideoApiResult>) getResponse(url, new VideoApiResult());
         if (videoApiResult == null) {
@@ -362,7 +360,6 @@ public class YoutubeService implements ApplicationRunner {
         url += "?part=snippet,statistics,topicDetails";
         url += "&id=" + videoId;
 
-
         return (ResponseEntity<VideoInfoApiResult>) getResponse(url, new VideoInfoApiResult());
     }
 
@@ -372,7 +369,6 @@ public class YoutubeService implements ApplicationRunner {
         url += "&videoId=" + videoId;
         url += "&order=relevance";
         url += "&maxResults=100";
-
 
         return (ResponseEntity<VideoCommentApiResult>) getResponse(url, new VideoCommentApiResult());
     }
@@ -407,7 +403,6 @@ public class YoutubeService implements ApplicationRunner {
         }
         return "";
     }
-
 
     public Map<String, Integer> getPolicitalScore(ArrayList<String> videoInfos){
         Komoran komoran = new Komoran(DEFAULT_MODEL.FULL);
